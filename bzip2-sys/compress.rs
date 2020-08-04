@@ -6,7 +6,7 @@ use crate::private_ffi::{
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 #[no_mangle]
-pub unsafe extern "C" fn BZ2_bsInitWrite(s: &mut EState) {
+pub extern "C" fn BZ2_bsInitWrite(s: &mut EState) {
     s.bsLive = 0;
     s.bsBuff = 0;
 }
@@ -55,7 +55,7 @@ pub extern "C" fn bsPutUChar(s: &mut EState, c: u8) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn makeMaps_e(s: &mut EState) {
+pub extern "C" fn makeMaps_e(s: &mut EState) {
     s.nInUse = 0;
 
     // for i in 0..256 {
@@ -228,7 +228,8 @@ fn BZ_ITUR_50(s: &mut EState, mtfv: &mut [u16], bt: usize, gs: usize) {
 const BZ_GREATER_ICOST: u8 = 15;
 const BZ_LESSER_ICOST: u8 = 0;
 
-fn sendMTFValues(s: &mut EState) {
+#[no_mangle]
+pub extern "C" fn sendMTFValues2(s: &mut EState) {
     //    Int32 v, t, i, j, gs, ge, totc, bt, bc, iter;
     //    Int32 nSelectors, alphaSize, minLen, maxLen, selCtr;
     //    Int32 nGroups, nBytes;
@@ -473,7 +474,7 @@ fn sendMTFValues(s: &mut EState) {
 }
 
 #[no_mangle]
-pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: bool) {
+pub extern "C" fn BZ2_compressBlock2(s: &mut EState, is_last_block: u8) {
     if s.nblock > 0 {
         s.blockCRC = !s.blockCRC;
         s.combinedCRC = (s.combinedCRC << 1) | (s.combinedCRC >> 31);
@@ -509,13 +510,11 @@ pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: bool) {
 
     // /*-- If this is the first block, create the stream header. --*/
     if s.blockNo == 1 {
-        unsafe {
-            BZ2_bsInitWrite(s);
-            bsPutUChar(s, BZ_HDR_B as u8);
-            bsPutUChar(s, BZ_HDR_Z as u8);
-            bsPutUChar(s, BZ_HDR_h as u8);
-            bsPutUChar(s, (BZ_HDR_0 as i32 + s.blockSize100k) as u8);
-        }
+        BZ2_bsInitWrite(s);
+        bsPutUChar(s, BZ_HDR_B as u8);
+        bsPutUChar(s, BZ_HDR_Z as u8);
+        bsPutUChar(s, BZ_HDR_h as u8);
+        bsPutUChar(s, (BZ_HDR_0 as i32 + s.blockSize100k) as u8);
     }
 
     if s.nblock > 0 {
@@ -541,12 +540,12 @@ pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: bool) {
 
             bsW(s, 24, s.origPtr as u32);
             generateMTFValues(s);
-            sendMTFValues(s);
+            sendMTFValues2(s);
         }
     }
 
     //*-- If this is the last block, add the stream trailer. --*/
-    if is_last_block {
+    if is_last_block == 1 {
         bsPutUChar(s, 0x17);
         bsPutUChar(s, 0x72);
         bsPutUChar(s, 0x45);

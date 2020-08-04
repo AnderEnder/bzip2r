@@ -291,6 +291,9 @@ extern void
 BZ2_compressBlock(EState *, Bool);
 
 extern void
+generateMTFValues(EState *);
+
+extern void
 BZ2_bsInitWrite(EState *);
 
 extern void

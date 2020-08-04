@@ -103,7 +103,7 @@
 // }
 
 /*---------------------------------------------------*/
-static void generateMTFValues(EState *s)
+void generateMTFValues(EState *s)
 {
    UChar yy[256];
    Int32 i, j;
@@ -334,7 +334,7 @@ static void sendMTFValues(EState *s)
       }
    }
 
-   /*--- 
+   /*---
       Iterate up to BZ_N_ITERS times to improve the tables.
    ---*/
    for (iter = 0; iter < BZ_N_ITERS; iter++)
@@ -349,7 +349,7 @@ static void sendMTFValues(EState *s)
 
       /*---
         Set up an auxiliary length table which is used to fast-track
-	the common case (nGroups == 6). 
+	the common case (nGroups == 6).
       ---*/
       if (nGroups == 6)
       {
@@ -374,7 +374,7 @@ static void sendMTFValues(EState *s)
          if (ge >= s->nMTF)
             ge = s->nMTF - 1;
 
-         /*-- 
+         /*--
             Calculate the cost of this group as coded
             by each of the coding tables.
          --*/
@@ -465,7 +465,7 @@ static void sendMTFValues(EState *s)
             }
          }
 
-         /*-- 
+         /*--
             Find the coding table which is best for this group,
             and record its identity in the selector table.
          --*/
@@ -482,7 +482,7 @@ static void sendMTFValues(EState *s)
          s->selector[nSelectors] = bt;
          nSelectors++;
 
-         /*-- 
+         /*--
             Increment the symbol frequencies for the selected table.
           --*/
          if (nGroups == 6 && 50 == ge - gs + 1)
@@ -565,7 +565,7 @@ static void sendMTFValues(EState *s)
       /*--
         Recompute the tables based on the accumulated frequencies.
       --*/
-      /* maxLen was changed from 20 to 17 in bzip2-1.0.3.  See 
+      /* maxLen was changed from 20 to 17 in bzip2-1.0.3.  See
          comment in huffman.c for details. */
       for (t = 0; t < nGroups; t++)
          BZ2_hbMakeCodeLengths(&(s->len[t][0]), &(s->rfreq[t][0]),
