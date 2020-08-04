@@ -1,6 +1,23 @@
 #![doc(html_root_url = "https://docs.rs/bzip2-sys/0.1")]
+#![allow(dead_code)]
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(improper_ctypes)]
 
 extern crate libc;
+
+pub(crate) mod compress;
+pub(crate) mod crctable;
+pub(crate) mod huffman;
+pub(crate) mod private_ffi;
+pub(crate) mod randtable;
+
+pub use compress::*;
+pub use crctable::*;
+pub use huffman::*;
+pub use private_ffi::*;
+pub use randtable::*;
 
 use libc::{c_char, c_int, c_uint, c_void};
 
