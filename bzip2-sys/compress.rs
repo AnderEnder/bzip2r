@@ -1,7 +1,7 @@
 use crate::huffman::BZ2_hbMakeCodeLengths;
 use crate::private_ffi::{
-    generateMTFValues, set_zbits, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B,
-    BZ_HDR_Z, BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
+    set_zbits, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z,
+    BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
 };
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
@@ -74,8 +74,8 @@ fn asserth(cond: bool, msg: i32) {
     1;
 }
 
-// #[no_mangle]
-pub unsafe extern "C" fn generateMTFValues2(s: &mut EState) {
+#[no_mangle]
+pub extern "C" fn generateMTFValues(s: &mut EState) {
     /*
        After sorting (eg, here),
           s->arr1 [ 0 .. s->nblock-1 ] holds sorted order,
@@ -98,9 +98,9 @@ pub unsafe extern "C" fn generateMTFValues2(s: &mut EState) {
        except for the last one, which is arranged in
        compressBlock().
     */
-    let ptr = from_raw_parts_mut(s.ptr, (s.nblockMAX + 2) as usize);
-    let block = from_raw_parts_mut(s.block, (s.nblockMAX + 2) as usize);
-    let mtfv = from_raw_parts_mut(s.mtfv, (s.nblockMAX + 2) as usize);
+    let ptr = unsafe { from_raw_parts_mut(s.ptr, (s.nblockMAX + 2) as usize) };
+    let block = unsafe { from_raw_parts_mut(s.block, (s.nblockMAX + 2) as usize) };
+    let mtfv = unsafe { from_raw_parts_mut(s.mtfv, (s.nblockMAX + 2) as usize) };
 
     makeMaps_e(s);
     let EOB = s.nInUse + 1;
@@ -155,7 +155,7 @@ pub unsafe extern "C" fn generateMTFValues2(s: &mut EState) {
                 yy[1] = yy[0];
                 let rll_i = ll_i;
                 //let ryy_j = &mut yy[1];
-                let mut ryy_j = i;
+                let mut ryy_j = 1;
 
                 while rll_i != rtmp {
                     ryy_j += 1;
