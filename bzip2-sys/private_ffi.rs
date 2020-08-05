@@ -13277,6 +13277,9 @@ extern "C" {
     pub fn BZ2_compressBlock(arg1: *mut EState, arg2: Bool);
 }
 extern "C" {
+    pub fn sendMTFValues(arg1: *mut EState);
+}
+extern "C" {
     pub fn set_zbits(arg1: *mut EState);
 }
 extern "C" {
