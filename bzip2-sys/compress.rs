@@ -58,12 +58,6 @@ pub extern "C" fn bsPutUChar(s: &mut EState, c: u8) {
 pub extern "C" fn makeMaps_e(s: &mut EState) {
     s.nInUse = 0;
 
-    // for i in 0..256 {
-    //     if s.inUse[i] == 1 {
-    //         s.unseqToSeq[i] = s.nInUse as u8;
-    //         s.nInUse += 1;
-    //     }
-    // }
     for (in_use, unseq_to_seq) in s.inUse.iter().zip(s.unseqToSeq.iter_mut()) {
         if *in_use == 1 {
             *unseq_to_seq = s.nInUse as u8;
@@ -156,26 +150,27 @@ pub unsafe extern "C" fn generateMTFValues2(s: &mut EState) {
                 }
                 zPend = 0;
             }
+            {
+                let mut rtmp = yy[1];
+                yy[1] = yy[0];
+                let rll_i = ll_i;
+                //let ryy_j = &mut yy[1];
+                let mut ryy_j = i;
 
-            let mut rtmp = yy[1];
-            yy[1] = yy[0];
-            let rll_i = ll_i;
-            //let ryy_j = &mut yy[1];
-            let mut ryy_j = i;
+                while rll_i != rtmp {
+                    ryy_j += 1;
+                    let rtmp2 = rtmp;
+                    rtmp = yy[ryy_j];
+                    yy[ryy_j] = rtmp2;
+                }
 
-            while rll_i != rtmp {
-                ryy_j += 1;
-                let rtmp2 = rtmp;
-                rtmp = yy[ryy_j];
-                yy[ryy_j] = rtmp2;
+                yy[0] = rtmp;
+                //j = yy[1] as i32 - yy[0] as i32;
+                j = ryy_j as i32;
+                mtfv[wr] = (j + 1) as u16;
+                wr += 1;
+                s.mtfFreq[(j + 1) as usize] += 1;
             }
-
-            yy[0] = rtmp;
-            //j = yy[1] as i32 - yy[0] as i32;
-            j = ryy_j as i32;
-            mtfv[wr] = (j + 1) as u16;
-            wr += 1;
-            s.mtfFreq[(j + 1) as usize] += 1;
         }
     }
 
@@ -196,7 +191,7 @@ pub unsafe extern "C" fn generateMTFValues2(s: &mut EState) {
             }
             zPend = (zPend - 2) / 2;
         }
-        // zPend = 0;
+        zPend = 0;
     }
 
     mtfv[wr] = EOB as u16;
