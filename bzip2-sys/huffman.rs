@@ -103,14 +103,9 @@ fn addweights(zw1: i32, zw2: i32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn BZ2_hbMakeCodeLengths(
-    len: *mut u8,
-    freq: *mut i32,
-    alphaSize: i32,
-    maxLen: i32,
-) {
-    let len = from_raw_parts_mut(len, alphaSize as usize);
-    let freq = from_raw_parts_mut(freq, alphaSize as usize);
+pub extern "C" fn BZ2_hbMakeCodeLengths(len: *mut u8, freq: *mut i32, alphaSize: i32, maxLen: i32) {
+    let len = unsafe { from_raw_parts_mut(len, alphaSize as usize) };
+    let freq = unsafe { from_raw_parts_mut(freq, alphaSize as usize) };
     bz2_hb_make_code_lengths(len, freq, alphaSize, maxLen);
 }
 

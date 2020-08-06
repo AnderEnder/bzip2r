@@ -1,9 +1,21 @@
 use crate::huffman::BZ2_hbMakeCodeLengths;
 use crate::private_ffi::{
-    sendMTFValues, set_zbits, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B,
-    BZ_HDR_Z, BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
+    //sendMTFValues,
+    set_zbits,
+    BZ2_blockSort,
+    BZ_HDR_h,
+    EState,
+    BZ_G_SIZE,
+    BZ_HDR_0,
+    BZ_HDR_B,
+    BZ_HDR_Z,
+    BZ_MAX_SELECTORS,
+    BZ_N_GROUPS,
+    BZ_N_ITERS,
+    BZ_RUNA,
+    BZ_RUNB,
 };
-use std::slice::{from_raw_parts, from_raw_parts_mut};
+use std::slice::from_raw_parts_mut;
 
 #[no_mangle]
 pub extern "C" fn BZ2_bsInitWrite(s: &mut EState) {
@@ -66,11 +78,11 @@ pub extern "C" fn makeMaps_e(s: &mut EState) {
     }
 }
 
-fn assertd(cond: bool, msg: &'static str) {
+fn assertd(_cond: bool, _msg: &'static str) {
     1;
 }
 
-fn asserth(cond: bool, msg: i32) {
+fn asserth(_cond: bool, _msg: i32) {
     1;
 }
 
@@ -190,7 +202,7 @@ pub extern "C" fn generateMTFValues(s: &mut EState) {
             }
             zPend = (zPend - 2) / 2;
         }
-        zPend = 0;
+        //zPend = 0;
     }
 
     mtfv[wr] = EOB as u16;
@@ -199,16 +211,16 @@ pub extern "C" fn generateMTFValues(s: &mut EState) {
     s.nMTF = wr as i32;
 }
 
-fn BZ_ITER_50(s: &mut EState, mtfv: &mut [u16], gs: usize) -> (u16, u16, u16) {
+fn BZ_ITER_50(s: &mut EState, mtfv: &mut [u16], gs: usize) -> (u32, u32, u32) {
     let mut cost01 = 0;
     let mut cost23 = 0;
     let mut cost45 = 0;
 
     for nn in 0..50 {
-        let icv = mtfv[gs + (nn)];
-        cost01 += s.len_pack[icv as usize][0] as u16;
-        cost23 += s.len_pack[icv as usize][1] as u16;
-        cost45 += s.len_pack[icv as usize][2] as u16;
+        let icv = mtfv[gs + nn];
+        cost01 += s.len_pack[icv as usize][0] as u32;
+        cost23 += s.len_pack[icv as usize][1] as u32;
+        cost45 += s.len_pack[icv as usize][2] as u32;
     }
     (cost01, cost23, cost45)
 }
@@ -223,7 +235,7 @@ const BZ_GREATER_ICOST: u8 = 15;
 const BZ_LESSER_ICOST: u8 = 0;
 
 #[no_mangle]
-pub extern "C" fn sendMTFValues2(s: &mut EState) {
+pub extern "C" fn sendMTFValues(s: &mut EState) {
     //    Int32 v, t, i, j, gs, ge, totc, bt, bc, iter;
     //    Int32 nSelectors, alphaSize, minLen, maxLen, selCtr;
     //    Int32 nGroups, nBytes;
@@ -241,8 +253,8 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
 
     let mut cost = [0_u16; BZ_N_GROUPS as usize];
     let mut fave = [0_i32; BZ_N_GROUPS as usize];
-    let mut gs = 0;
-    let mut ge: i32 = 0;
+    // let mut gs = 0;
+    // let mut ge: i32 = 0;
 
     let mtfv = unsafe { from_raw_parts_mut(s.mtfv, (s.nblockMAX + 2) as usize) };
 
@@ -276,15 +288,13 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
 
         let mut nPart = nGroups;
         let mut remF = s.nMTF;
-        let mut gs = 0;
-        let mut ge = 0;
-        let mut tFreq = 0;
+        let mut gs = 0_i32;
 
         while nPart > 0 {
-            tFreq = remF / nPart;
-            ge = gs - 1;
+            let tFreq = remF / nPart as i32;
+            let mut ge = gs - 1;
             let mut aFreq = 0;
-            while aFreq < tFreq && ge < alphaSize - 1 {
+            while aFreq < tFreq && (ge as i32) < (alphaSize - 1) {
                 ge += 1;
                 aFreq += s.mtfFreq[ge as usize];
             }
@@ -307,9 +317,9 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
 
             for v in 0..alphaSize {
                 if v >= gs && v <= ge {
-                    s.len[(nPart - 1) as usize][v as usize] = BZ_LESSER_ICOST;
+                    s.len[(nPart - 1)][v as usize] = BZ_LESSER_ICOST;
                 } else {
-                    s.len[(nPart - 1) as usize][v as usize] = BZ_GREATER_ICOST;
+                    s.len[(nPart - 1)][v as usize] = BZ_GREATER_ICOST;
                 }
             }
 
@@ -335,21 +345,22 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
         // the common case (nGroups == 6).
         if nGroups == 6 {
             for v in 0..alphaSize as usize {
-                // s.len_pack[v][0] = ((s.len[1][v] << 16) | s.len[0][v]).into();
-                // s.len_pack[v][1] = ((s.len[3][v] << 16) | s.len[2][v]).into();
-                // s.len_pack[v][2] = ((s.len[5][v] << 16) | s.len[4][v]).into();
+                s.len_pack[v][0] = ((s.len[1][v] as u32) << 16) | (s.len[0][v] as u32);
+                s.len_pack[v][1] = ((s.len[3][v] as u32) << 16) | (s.len[2][v] as u32);
+                s.len_pack[v][2] = ((s.len[5][v] as u32) << 16) | (s.len[4][v] as u32);
             }
         }
 
         nSelectors = 0;
         let mut totc = 0;
+        let mut gs = 0;
         loop {
             // Set group start & end marks. --*/
             if gs >= s.nMTF {
                 break;
             }
 
-            ge = gs + BZ_G_SIZE as i32 - 1;
+            let mut ge = gs + BZ_G_SIZE as i32 - 1;
 
             if ge >= s.nMTF {
                 ge = s.nMTF - 1;
@@ -365,12 +376,12 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
                 //    register UInt32 cost01, cost23, cost45;
                 //    register UInt16 icv;
                 let (cost01, cost23, cost45) = BZ_ITER_50(s, mtfv, gs as usize);
-            // cost[0] = cost01 & 0xffff;
-            // cost[1] = cost01 >> 16;
-            // cost[2] = cost23 & 0xffff;
-            // cost[3] = cost23 >> 16;
-            // cost[4] = cost45 & 0xffff;
-            // cost[5] = cost45 >> 16;
+                cost[0] = cost01 as u16 & 0xffff;
+                cost[1] = (cost01 >> 16) as u16;
+                cost[2] = cost23 as u16 & 0xffff;
+                cost[3] = (cost23 >> 16) as u16;
+                cost[4] = cost45 as u16 & 0xffff;
+                cost[5] = (cost45 >> 16) as u16;
             } else {
                 // slow version which correctly handles all situations ---*/
                 for i in gs..ge + 1 {
@@ -400,7 +411,10 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
             //  Increment the symbol frequencies for the selected table.
             if nGroups == 6 && 50 == ge - gs + 1 {
                 // fast track the common case ---*/
-                BZ_ITUR_50(s, mtfv, bt as usize, gs as usize);
+                // BZ_ITUR_50(s, mtfv, bt as usize, gs as usize);
+                for nn in 0..50 {
+                    s.rfreq[bt as usize][mtfv[gs as usize + nn] as usize] += 1
+                }
             } else {
                 // slow version which correctly handles all situations
                 for i in gs..ge + 1 {
@@ -427,14 +441,12 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
         // maxLen was changed from 20 to 17 in bzip2-1.0.3.  See
         // comment in huffman.c for details
         for t in 0..nGroups as usize {
-            unsafe {
-                BZ2_hbMakeCodeLengths(
-                    &mut (s.len[t][0]),
-                    &mut (s.rfreq[t][0]),
-                    alphaSize,
-                    17, /*20*/
-                );
-            }
+            BZ2_hbMakeCodeLengths(
+                &mut (s.len[t][0]),
+                &mut (s.rfreq[t][0]),
+                alphaSize,
+                17, // 20
+            );
         }
     }
 
@@ -464,7 +476,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
             pos[0] = tmp;
             s.selectorMtf[i] = j as u8;
         }
-    };
+    }
 }
 
 #[no_mangle]
