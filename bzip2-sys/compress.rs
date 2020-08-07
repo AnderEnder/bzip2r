@@ -1,19 +1,7 @@
 use crate::huffman::BZ2_hbMakeCodeLengths;
 use crate::private_ffi::{
-    //sendMTFValues,
-    set_zbits,
-    BZ2_blockSort,
-    BZ_HDR_h,
-    EState,
-    BZ_G_SIZE,
-    BZ_HDR_0,
-    BZ_HDR_B,
-    BZ_HDR_Z,
-    BZ_MAX_SELECTORS,
-    BZ_N_GROUPS,
-    BZ_N_ITERS,
-    BZ_RUNA,
-    BZ_RUNB,
+    sendMTFValues, set_zbits, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B,
+    BZ_HDR_Z, BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -78,11 +66,11 @@ pub extern "C" fn makeMaps_e(s: &mut EState) {
     }
 }
 
-fn assertd(_cond: bool, _msg: &'static str) {
+pub fn assertd(_cond: bool, _msg: &'static str) {
     1;
 }
 
-fn asserth(_cond: bool, _msg: i32) {
+pub fn asserth(_cond: bool, _msg: i32) {
     1;
 }
 
@@ -235,7 +223,7 @@ const BZ_GREATER_ICOST: u8 = 15;
 const BZ_LESSER_ICOST: u8 = 0;
 
 #[no_mangle]
-pub extern "C" fn sendMTFValues(s: &mut EState) {
+pub extern "C" fn sendMTFValues2(s: &mut EState) {
     //    Int32 v, t, i, j, gs, ge, totc, bt, bc, iter;
     //    Int32 nSelectors, alphaSize, minLen, maxLen, selCtr;
     //    Int32 nGroups, nBytes;

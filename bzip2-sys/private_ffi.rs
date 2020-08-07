@@ -13273,6 +13273,23 @@ fn bindgen_test_layout_EState() {
 extern "C" {
     pub fn BZ2_blockSort(arg1: *mut EState);
 }
+
+extern "C" {
+    pub fn fallbackSort(fmap: *mut u32, eclass: *mut u32, bhtab: *mut u32, nblock: i32, verb: i32);
+}
+
+extern "C" {
+    pub fn mainSort(
+        ptr: *mut u32,
+        block: *mut u8,
+        quadrant: *mut u16,
+        ftab: *mut u32,
+        nblock: i32,
+        verb: i32,
+        budget: *mut u32,
+    );
+}
+
 extern "C" {
     pub fn BZ2_compressBlock(arg1: *mut EState, arg2: Bool);
 }

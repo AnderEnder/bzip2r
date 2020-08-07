@@ -7,12 +7,14 @@
 
 extern crate libc;
 
+pub(crate) mod blocksort;
 pub(crate) mod compress;
 pub(crate) mod crctable;
 pub(crate) mod huffman;
 pub(crate) mod private_ffi;
 pub(crate) mod randtable;
 
+pub use blocksort::*;
 pub use compress::*;
 pub use crctable::*;
 pub use huffman::*;
