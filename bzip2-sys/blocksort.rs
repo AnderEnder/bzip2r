@@ -535,20 +535,11 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
 
 #[no_mangle]
 pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hiSt: i32) {
-    // let mut unLo: libc::c_int = 0;
-    // let mut unHi: libc::c_int = 0;
-    // let mut ltLo: libc::c_int = 0;
-    // let mut gtHi: libc::c_int = 0;
     let mut n = 0;
     let mut m: libc::c_int = 0;
-    // let mut lo: libc::c_int = 0;
-    // let mut hi: libc::c_int = 0;
-    // let mut med: libc::c_uint = 0;
     let mut r: libc::c_uint = 0;
-    // let mut r3: libc::c_uint = 0;
     let mut stackLo: [i32; 100] = [0; 100];
     let mut stackHi: [i32; 100] = [0; 100];
-    let mut sp = 0;
 
     let fmap = unsafe { from_raw_parts_mut(fmap, (hiSt + 1) as usize) };
     let max_index = fmap
@@ -559,12 +550,15 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
         .unwrap_or_default() as usize;
     let eclass = unsafe { from_raw_parts_mut(eclass, max_index + 1) };
 
-    sp = fpush(&mut stackLo, &mut stackHi, sp, loSt, hiSt);
+    let mut sp = fpush(&mut stackLo, &mut stackHi, 0, loSt, hiSt);
 
     while sp > 0 {
         asserth(sp < 100 - 1, 1004);
-        let (lo, hi, mut sp) = fpop(&mut stackLo, &mut stackHi, sp);
-        if hi - lo < 10 as libc::c_int {
+        sp -= 1;
+        let lo = stackLo[sp as usize];
+        let hi = stackHi[sp as usize];
+
+        if hi - lo < 10 {
             fallback_simple_sort(fmap, eclass, lo, hi);
         } else {
             // Random partitioning.  Median of 3 sometimes fails to
@@ -674,11 +668,4 @@ fn fpush(stackLo: &mut [i32; 100], stackHi: &mut [i32; 100], mut sp: i32, lz: i3
     stackHi[sp as usize] = hz;
     sp += 1;
     sp
-}
-
-fn fpop(stackLo: &[i32; 100], stackHi: &[i32; 100], mut sp: i32) -> (i32, i32, i32) {
-    sp -= 1;
-    let lz = stackLo[sp as usize];
-    let hz = stackHi[sp as usize];
-    (lz, hz, sp)
 }
