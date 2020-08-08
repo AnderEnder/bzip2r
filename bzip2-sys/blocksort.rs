@@ -533,138 +533,133 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
     asserth(s.origPtr != -1, 1003);
 }
 
-// #[no_mangle]
-// pub unsafe extern "C" fn fallbackQSort3(
-//     mut fmap: *mut libc::c_uint,
-//     mut eclass: *mut libc::c_uint,
-//     mut loSt: libc::c_int,
-//     mut hiSt: libc::c_int,
-// ) {
-//     let mut unLo: libc::c_int = 0;
-//     let mut unHi: libc::c_int = 0;
-//     let mut ltLo: libc::c_int = 0;
-//     let mut gtHi: libc::c_int = 0;
-//     let mut n: libc::c_int = 0;
-//     let mut m: libc::c_int = 0;
-//     let mut sp: libc::c_int = 0;
-//     let mut lo: libc::c_int = 0;
-//     let mut hi: libc::c_int = 0;
-//     let mut med: libc::c_uint = 0;
-//     let mut r: libc::c_uint = 0;
-//     let mut r3: libc::c_uint = 0;
-//     let mut stackLo: [i32; 100] = [0; 100];
-//     let mut stackHi: [i32; 100] = [0; 100];
-//     r = 0;
-//     sp = 0;
-//     fpush(loSt, hiSt);
+#[no_mangle]
+pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hiSt: i32) {
+    // let mut unLo: libc::c_int = 0;
+    // let mut unHi: libc::c_int = 0;
+    // let mut ltLo: libc::c_int = 0;
+    // let mut gtHi: libc::c_int = 0;
+    let mut n = 0;
+    let mut m: libc::c_int = 0;
+    // let mut lo: libc::c_int = 0;
+    // let mut hi: libc::c_int = 0;
+    // let mut med: libc::c_uint = 0;
+    let mut r: libc::c_uint = 0;
+    // let mut r3: libc::c_uint = 0;
+    let mut stackLo: [i32; 100] = [0; 100];
+    let mut stackHi: [i32; 100] = [0; 100];
+    let mut sp = 0;
 
-//     while sp > 0 {
-//         asserth(sp < 100 - 1, 1004);
-//         let (lo, hi, sp) = fpop(&mut stackLo, &mut stackHi, sp);
-//         if hi - lo < 10 as libc::c_int {
-//             fallbackSimpleSort(fmap, eclass, lo, hi);
-//         } else {
-//             /* Random partitioning.  Median of 3 sometimes fails to
-//                avoid bad cases.  Median of 9 seems to help but
-//                looks rather expensive.  This too seems to work but
-//                is cheaper.  Guidance for the magic constants
-//                7621 and 32768 is taken from Sedgewick's algorithms
-//                book, chapter 35.
-//             */
-//             r = r.wrapping_mul(7621).wrapping_add(1).wrapping_rem(32768);
-//             r3 = r.wrapping_rem(3);
-//             if r3 == 0 {
-//                 med = *eclass.offset(*fmap.offset(lo as isize) as isize)
-//             } else if r3 == 1 {
-//                 med = *eclass.offset(*fmap.offset((lo + hi >> 1 as libc::c_int) as isize) as isize)
-//             } else {
-//                 med = *eclass.offset(*fmap.offset(hi as isize) as isize)
-//             }
-//             ltLo = lo;
-//             unLo = ltLo;
-//             gtHi = hi;
-//             unHi = gtHi;
-//             loop {
-//                 while !(unLo > unHi) {
-//                     n = *eclass.offset(*fmap.offset(unLo as isize) as isize) as libc::c_int
-//                         - med as libc::c_int;
-//                     if n == 0 {
-//                         fswap(*fmap.offset(unLo as isize), *fmap.offset(ltLo as isize));
-//                         ltLo += 1;
-//                         unLo += 1
-//                     } else {
-//                         if n > 0 as libc::c_int {
-//                             break;
-//                         }
-//                         unLo += 1
-//                     }
-//                 }
-//                 while !(unLo > unHi) {
-//                     n = *eclass.offset(*fmap.offset(unHi as isize) as isize) as libc::c_int
-//                         - med as libc::c_int;
-//                     if n == 0 as libc::c_int {
-//                         (*fmap.offset(unHi as isize), *fmap.offset(gtHi as isize));
-//                         gtHi -= 1;
-//                         unHi -= 1
-//                     } else {
-//                         if n < 0 as libc::c_int {
-//                             break;
-//                         }
-//                         unHi -= 1
-//                     }
-//                 }
-//                 if unLo > unHi {
-//                     break;
-//                 }
-//                 fswap(*fmap.offset(unLo as isize), *fmap.offset(unHi as isize));
-//                 unLo += 1;
-//                 unHi -= 1
-//             }
-//             assertd(unHi == unLo - 1 as libc::c_int, "fallbackQSort3(2)\x00");
-//             if gtHi < ltLo {
-//                 continue;
-//             }
-//             n = fmin(
-//                 (ltLo - lo) as libc::c_double,
-//                 (unLo - ltLo) as libc::c_double,
-//             );
+    let fmap = unsafe { from_raw_parts_mut(fmap, (hiSt + 1) as usize) };
+    let max_index = fmap
+        .iter()
+        .skip(loSt as usize)
+        .max()
+        .cloned()
+        .unwrap_or_default() as usize;
+    let eclass = unsafe { from_raw_parts_mut(eclass, max_index + 1) };
 
-//             fvswap(lo, unLo - n, n);
-//             m = fmin(
-//                 (hi - gtHi) as libc::c_double,
-//                 (gtHi - unHi) as libc::c_double,
-//             ) as libc::c_int;
-//             fvswap(unLo, hi - m + 1, m);
-//             n = lo + unLo - ltLo - 1 as libc::c_int;
-//             m = hi - (gtHi - unHi) + 1 as libc::c_int;
-//             if n - lo > hi - m {
-//                 fpush(lo, n);
-//                 fpush(m, hi);
-//             } else {
-//                 fpush(m, hi);
-//                 fpush(lo, n);
-//             }
-//         }
-//     }
-// }
+    sp = fpush(&mut stackLo, &mut stackHi, sp, loSt, hiSt);
 
-// fn fswap(zz1: &mut i32, zz2: &mut i32) {
+    while sp > 0 {
+        asserth(sp < 100 - 1, 1004);
+        let (lo, hi, mut sp) = fpop(&mut stackLo, &mut stackHi, sp);
+        if hi - lo < 10 as libc::c_int {
+            fallback_simple_sort(fmap, eclass, lo, hi);
+        } else {
+            // Random partitioning.  Median of 3 sometimes fails to
+            // avoid bad cases.  Median of 9 seems to help but
+            // looks rather expensive.  This too seems to work but
+            // is cheaper.  Guidance for the magic constants
+            // 7621 and 32768 is taken from Sedgewick's algorithms
+            // book, chapter 35.
+            r = r.wrapping_mul(7621).wrapping_add(1).wrapping_rem(32768);
+            let r3 = r.wrapping_rem(3);
+            let med = if r3 == 0 {
+                eclass[fmap[lo as usize] as usize]
+            } else if r3 == 1 {
+                eclass[fmap[(lo + hi >> 1) as usize] as usize]
+            } else {
+                eclass[fmap[hi as usize] as usize]
+            };
+            let mut ltLo = lo;
+            let mut unLo = ltLo;
+            let mut gtHi = hi;
+            let mut unHi = gtHi;
+            loop {
+                while !(unLo > unHi) {
+                    n = eclass[fmap[unLo as usize] as usize] as i32 - med as i32;
+                    if n == 0 {
+                        fmap.swap(unLo as usize, ltLo as usize);
+                        ltLo += 1;
+                        unLo += 1
+                    } else {
+                        if n > 0 as libc::c_int {
+                            break;
+                        }
+                        unLo += 1
+                    }
+                }
+                while !(unLo > unHi) {
+                    n = eclass[fmap[unHi as usize] as usize] as i32 - med as i32;
+                    if n == 0 {
+                        fmap.swap(unHi as usize, gtHi as usize);
+                        gtHi -= 1;
+                        unHi -= 1;
+                        continue;
+                    } else {
+                        if n < 0 {
+                            break;
+                        }
+                        unHi -= 1;
+                    }
+                }
+                if unLo > unHi {
+                    break;
+                }
+                fmap.swap(unLo as usize, unHi as usize);
+                unLo += 1;
+                unHi -= 1
+            }
+            assertd(unHi == unLo - 1, "fallbackQSort3(2)\x00");
+            if gtHi < ltLo {
+                continue;
+            }
+            n = (ltLo - lo).min(unLo - ltLo);
+
+            fvswap(lo, unLo - n, n, fmap);
+            m = (hi - gtHi).min(gtHi - unHi);
+            fvswap(unLo, hi - m + 1, m, fmap);
+            n = lo + unLo - ltLo - 1 as libc::c_int;
+            m = hi - (gtHi - unHi) + 1 as libc::c_int;
+            if n - lo > hi - m {
+                sp = fpush(&mut stackLo, &mut stackHi, sp, lo, n);
+                fpush(&mut stackLo, &mut stackHi, sp, m, hi);
+            } else {
+                sp = fpush(&mut stackLo, &mut stackHi, sp, m, hi);
+                fpush(&mut stackLo, &mut stackHi, sp, lo, n);
+            }
+        }
+    }
+}
+
+// unsafe fn fswap(zz1: *mut u32, zz2: *mut u32) {
 //     let zztmp = *zz1;
 //     *zz1 = *zz2;
 //     *zz2 = zztmp;
 // }
 
-// fn fvswap(zzp1: i32, zzp2: i32, zzn: i32, fmap: &mut [i32]) {
-//     let yyp1 = zzp1;
-//     let yyp2 = zzp2;
-//     let yyn = zzn;
-//     while yyn > 0 {
-//         std::mem::swap(&mut fmap[yyp1 as usize], &mut fmap[yyp2 as usize]);
-//         yyp1 += 1;
-//         yyp2 += 1;
-//         yyn -= 1;
-//     }
-// }
+fn fvswap(zzp1: i32, zzp2: i32, zzn: i32, fmap: &mut [u32]) {
+    let mut yyp1 = zzp1;
+    let mut yyp2 = zzp2;
+    let mut yyn = zzn;
+    while yyn > 0 {
+        fmap.swap(yyp1 as usize, yyp2 as usize);
+        yyp1 += 1;
+        yyp2 += 1;
+        yyn -= 1;
+    }
+}
 
 // fn fmin(a: i32, b: i32) -> i32 {
 //     if a < b {
@@ -674,15 +669,16 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
 //     }
 // }
 
-// fn fpush(lz: i32, hz: i32) {
-//     stackLo[sp] = lz;
-//     stackHi[sp] = hz;
-//     sp += 1;
-// }
+fn fpush(stackLo: &mut [i32; 100], stackHi: &mut [i32; 100], mut sp: i32, lz: i32, hz: i32) -> i32 {
+    stackLo[sp as usize] = lz;
+    stackHi[sp as usize] = hz;
+    sp += 1;
+    sp
+}
 
-// fn fpop(stackLo: &[i32], stackHi: &[i32], sp: i32) -> (i32, i32, i32) {
-//     sp -= 1;
-//     let lz = stackLo[sp as usize];
-//     let hz = stackHi[sp as usize];
-//     (lz, hz, sp)
-// }
+fn fpop(stackLo: &[i32; 100], stackHi: &[i32; 100], mut sp: i32) -> (i32, i32, i32) {
+    sp -= 1;
+    let lz = stackLo[sp as usize];
+    let hz = stackHi[sp as usize];
+    (lz, hz, sp)
+}
