@@ -533,11 +533,14 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
     asserth(s.origPtr != -1, 1003);
 }
 
+const FALLBACK_QSORT_SMALL_THRESH: i32 = 10;
+const FALLBACK_QSORT_STACK_SIZE: usize = 100;
+
 #[no_mangle]
 pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hiSt: i32) {
     let mut r: i32 = 0;
-    let mut stackLo: [i32; 100] = [0; 100];
-    let mut stackHi: [i32; 100] = [0; 100];
+    let mut stackLo: [i32; FALLBACK_QSORT_STACK_SIZE] = [0; 100];
+    let mut stackHi: [i32; FALLBACK_QSORT_STACK_SIZE] = [0; 100];
 
     let fmap = unsafe { from_raw_parts_mut(fmap, (hiSt + 1) as usize) };
     let max_index = fmap
@@ -553,12 +556,12 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
     let mut sp = 1;
 
     while sp > 0 {
-        asserth(sp < 100 - 1, 1004);
+        asserth(sp < FALLBACK_QSORT_STACK_SIZE - 1, 1004);
         sp -= 1;
         let lo = stackLo[sp as usize];
         let hi = stackHi[sp as usize];
 
-        if hi - lo < 10 {
+        if hi - lo < FALLBACK_QSORT_SMALL_THRESH {
             fallback_simple_sort(fmap, eclass, lo, hi);
         } else {
             // Random partitioning.  Median of 3 sometimes fails to

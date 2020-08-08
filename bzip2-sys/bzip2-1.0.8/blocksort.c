@@ -58,45 +58,45 @@
 // }
 
 /*---------------------------------------------*/
-#define fswap(zz1, zz2)  \
-   {                     \
-      Int32 zztmp = zz1; \
-      zz1 = zz2;         \
-      zz2 = zztmp;       \
-   }
+// #define fswap(zz1, zz2)  \
+//    {                     \
+//       Int32 zztmp = zz1; \
+//       zz1 = zz2;         \
+//       zz2 = zztmp;       \
+//    }
 
-#define fvswap(zzp1, zzp2, zzn)         \
-   {                                    \
-      Int32 yyp1 = (zzp1);              \
-      Int32 yyp2 = (zzp2);              \
-      Int32 yyn = (zzn);                \
-      while (yyn > 0)                   \
-      {                                 \
-         fswap(fmap[yyp1], fmap[yyp2]); \
-         yyp1++;                        \
-         yyp2++;                        \
-         yyn--;                         \
-      }                                 \
-   }
+// #define fvswap(zzp1, zzp2, zzn)         \
+//    {                                    \
+//       Int32 yyp1 = (zzp1);              \
+//       Int32 yyp2 = (zzp2);              \
+//       Int32 yyn = (zzn);                \
+//       while (yyn > 0)                   \
+//       {                                 \
+//          fswap(fmap[yyp1], fmap[yyp2]); \
+//          yyp1++;                        \
+//          yyp2++;                        \
+//          yyn--;                         \
+//       }                                 \
+//    }
 
-#define fmin(a, b) ((a) < (b)) ? (a) : (b)
+// #define fmin(a, b) ((a) < (b)) ? (a) : (b)
 
-#define fpush(lz, hz)   \
-   {                    \
-      stackLo[sp] = lz; \
-      stackHi[sp] = hz; \
-      sp++;             \
-   }
+// #define fpush(lz, hz)   \
+//    {                    \
+//       stackLo[sp] = lz; \
+//       stackHi[sp] = hz; \
+//       sp++;             \
+//    }
 
-#define fpop(lz, hz)    \
-   {                    \
-      sp--;             \
-      lz = stackLo[sp]; \
-      hz = stackHi[sp]; \
-   }
+// #define fpop(lz, hz)    \
+//    {                    \
+//       sp--;             \
+//       lz = stackLo[sp]; \
+//       hz = stackHi[sp]; \
+//    }
 
-#define FALLBACK_QSORT_SMALL_THRESH 10
-#define FALLBACK_QSORT_STACK_SIZE 100
+// #define FALLBACK_QSORT_SMALL_THRESH 10
+// #define FALLBACK_QSORT_STACK_SIZE 100
 
 // static void fallbackQSort3(UInt32 *fmap,
 //                            UInt32 *eclass,
@@ -212,13 +212,13 @@
 //    }
 // }
 
-#undef fmin
-#undef fpush
-#undef fpop
-#undef fswap
-#undef fvswap
-#undef FALLBACK_QSORT_SMALL_THRESH
-#undef FALLBACK_QSORT_STACK_SIZE
+// #undef fmin
+// #undef fpush
+// #undef fpop
+// #undef fswap
+// #undef fvswap
+// #undef FALLBACK_QSORT_SMALL_THRESH
+// #undef FALLBACK_QSORT_STACK_SIZE
 
 /*---------------------------------------------*/
 /* Pre:
