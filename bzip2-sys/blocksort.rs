@@ -69,8 +69,8 @@ pub extern "C" fn mmed3(mut a: u8, mut b: u8, c: u8) -> u8 {
 
 #[no_mangle]
 pub extern "C" fn mainGtU(
-    mut i1: u32,
-    mut i2: u32,
+    i1: u32,
+    i2: u32,
     block: *mut u8,
     quadrant: *mut u16,
     nblock: u32,
@@ -460,9 +460,7 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
     let mut wfact = s.workFactor;
 
     if nblock < 10000 {
-        unsafe {
-            fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
-        }
+        fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
     } else {
         // Calculate the location for quadrant, remembering to get
         // the alignment right.  Assumes that &(block[0]) is at least
@@ -516,9 +514,7 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
             if verb >= 2 {
                 println!("    too repetitive; using fallback sorting algorithm");
             }
-            unsafe {
-                fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
-            }
+            fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
         }
     }
 
@@ -680,16 +676,14 @@ pub extern "C" fn fallbackSort(
 ) {
     let mut ftab: [libc::c_int; 257] = [0; 257];
     let mut ftabCopy: [libc::c_int; 256] = [0; 256];
-    let mut H: i32 = 0;
-    let mut i: i32 = 0;
-    let mut j: i32 = 0;
+    // let mut H: i32 = 0;
+    // let mut j: i32 = 0;
     let mut k: i32 = 0;
     let mut l: i32 = 0;
     let mut r: i32 = 0;
     let mut cc: i32 = 0;
     let mut cc1: i32 = 0;
     let mut nNotDone: i32 = 0;
-    let mut nBhtab: i32 = 0;
     let mut eclass8 = eclass as *mut u8;
 
     let eclass = unsafe { from_raw_parts_mut(eclass, (nblock + 1) as usize) };
@@ -716,13 +710,13 @@ pub extern "C" fn fallbackSort(
         ftab[i as usize] += ftab[(i - 1) as usize];
     }
     for i in 0..nblock {
-        j = eclass8[i as usize] as i32;
+        let j = eclass8[i as usize] as i32;
         k = ftab[j as usize] - 1;
         ftab[j as usize] = k;
         fmap[k as usize] = i as u32;
     }
 
-    nBhtab = 2 + nblock / 32;
+    let nBhtab = 2 + nblock / 32;
 
     for i in 0..nBhtab {
         bhtab[i as usize] = 0;
@@ -739,12 +733,12 @@ pub extern "C" fn fallbackSort(
         bhtab[(nblock + 2 * i + 1 >> 5) as usize] &= !((1) << (nblock + 2 * i + 1 & 31_i32));
     }
     // the log(N) loop
-    H = 1;
+    let mut H = 1;
     loop {
         if verb >= 4 {
             println!("        depth %6{} has \x00", H);
         }
-        j = 0;
+        let mut j = 0;
         for i in 0..nblock {
             if bhtab[(i >> 5) as usize] & (1) << (i & 31) != 0 {
                 j = i
@@ -819,7 +813,7 @@ pub extern "C" fn fallbackSort(
     if verb >= 4 {
         println!("        reconstructing block ...\n\x00");
     }
-    j = 0;
+    let mut j = 0;
     for i in 0..nblock {
         while ftabCopy[j as usize] == 0 {
             j += 1
