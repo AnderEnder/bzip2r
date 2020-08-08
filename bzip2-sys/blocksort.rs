@@ -695,6 +695,7 @@ pub extern "C" fn fallbackSort(
     let eclass = unsafe { from_raw_parts_mut(eclass, (nblock + 1) as usize) };
     let eclass8 = unsafe { from_raw_parts_mut(eclass8, (nblock + 1) as usize) };
     let fmap = unsafe { from_raw_parts_mut(fmap, (nblock + 1) as usize) };
+    let bhtab = unsafe { from_raw_parts_mut(bhtab, (nblock + 2) as usize) };
     // Initial 1-char radix sort to generate
     // initial fmap and initial BH bits.
     if verb >= 4 {
@@ -732,153 +733,113 @@ pub extern "C" fn fallbackSort(
     i = 0;
 
     while i < nBhtab {
-        unsafe { *bhtab.offset(i as isize) = 0 as libc::c_int as libc::c_uint };
+        bhtab[i as usize] = 0;
         i += 1
     }
-    i = 0 as libc::c_int;
-    while i < 256 as libc::c_int {
-        unsafe {
-            *bhtab.offset((ftab[i as usize] >> 5 as libc::c_int) as isize) |=
-                (1 as libc::c_int as libc::c_uint) << (ftab[i as usize] & 31 as libc::c_int)
-        };
+    i = 0;
+    while i < 256 {
+        bhtab[(ftab[i as usize] >> 5 as i32) as usize] |= (1_u32) << (ftab[i as usize] & 31_i32);
         i += 1
     }
     // Inductively refine the buckets.  Kind-of an
     // "exponential radix sort" (!), inspired by the
     // Manber-Myers suffix array construction algorithm.
     // set sentinel bits for block-end detection
-    i = 0 as libc::c_int;
-    while i < 32 as libc::c_int {
-        unsafe {
-            *bhtab.offset((nblock + 2 as libc::c_int * i >> 5 as libc::c_int) as isize) |=
-                (1 as libc::c_int as libc::c_uint)
-                    << (nblock + 2 as libc::c_int * i & 31 as libc::c_int);
-            *bhtab.offset(
-                (nblock + 2 as libc::c_int * i + 1 as libc::c_int >> 5 as libc::c_int) as isize,
-            ) &= !((1 as libc::c_int as libc::c_uint)
-                << (nblock + 2 as libc::c_int * i + 1 as libc::c_int & 31 as libc::c_int));
-        }
+    i = 0;
+    while i < 32 {
+        bhtab[(nblock + 2 * i >> 5) as usize] |= (1_u32) << (nblock + 2 * i & 31_i32);
+        bhtab[(nblock + 2 * i + 1 >> 5) as usize] &= !((1) << (nblock + 2 * i + 1 & 31_i32));
         i += 1
     }
     // the log(N) loop
-    H = 1 as libc::c_int;
+    H = 1;
     loop {
-        if verb >= 4 as libc::c_int {
+        if verb >= 4 {
             println!("        depth %6{} has \x00", H);
         }
-        j = 0 as libc::c_int;
-        i = 0 as libc::c_int;
+        j = 0;
+        i = 0;
         while i < nblock {
-            if unsafe { *bhtab.offset((i >> 5 as libc::c_int) as isize) }
-                & (1 as libc::c_int as libc::c_uint) << (i & 31 as libc::c_int)
-                != 0
-            {
+            if bhtab[(i >> 5) as usize] & (1) << (i & 31) != 0 {
                 j = i
             }
-            k = fmap[i as usize].wrapping_sub(H as libc::c_uint) as i32;
-            if k < 0 as libc::c_int {
+            k = fmap[i as usize].wrapping_sub(H as u32) as i32;
+            if k < 0 {
                 k += nblock
             }
-            eclass[k as usize] = j as libc::c_uint;
+            eclass[k as usize] = j as u32;
             i += 1
         }
-        nNotDone = 0 as libc::c_int;
-        r = -(1 as libc::c_int);
+        nNotDone = 0;
+        r = -1;
         loop {
             // find the next non-singleton bucket
-            k = r + 1 as libc::c_int;
-            while unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
-                != 0
-                && k & 0x1f as libc::c_int != 0
-            {
-                k += 1
+            k = r + 1;
+            while bhtab[(k >> 5) as usize] & (1_u32) << (k & 31_i32) != 0 && k & 0x1f as i32 != 0 {
+                k += 1;
             }
-            if unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
-                != 0
-            {
-                while unsafe {
-                    *bhtab.offset((k >> 5 as libc::c_int) as isize) == 0xffffffff as libc::c_uint
-                } {
-                    k += 32 as libc::c_int
+            if bhtab[(k >> 5) as usize] & 1 << (k & 31_i32) != 0 {
+                while bhtab[(k >> 5) as usize] == 0xffffffff {
+                    k += 32
                 }
-                while unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                    & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
-                    != 0
-                {
+                while bhtab[(k >> 5) as usize] & (1) << (k & 31) != 0 {
                     k += 1
                 }
             }
-            l = k - 1 as libc::c_int;
+            l = k - 1;
             if l >= nblock {
                 break;
             }
-            while unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
-                == 0
-                && k & 0x1f as libc::c_int != 0
-            {
+            while bhtab[(k >> 5) as usize] & (1) << (k & 31) == 0 && k & 0x1f != 0 {
                 k += 1
             }
-            if unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
-                == 0
-            {
-                while unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                    == 0 as libc::c_int as libc::c_uint
-                {
-                    k += 32 as libc::c_int
+            if bhtab[(k >> 5) as usize] & (1) << (k & 31) == 0 {
+                while bhtab[(k >> 5) as usize] == 0 {
+                    k += 32
                 }
-                while unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
-                    & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
-                    == 0
-                {
+                while bhtab[(k >> 5) as usize] & (1) << (k & 31) == 0 {
                     k += 1
                 }
             }
-            r = k - 1 as libc::c_int;
+            r = k - 1;
             if r >= nblock {
                 break;
             }
             // now [l, r] bracket current bucket
             if r > l {
-                nNotDone += r - l + 1 as libc::c_int;
+                nNotDone += r - l + 1;
                 fallback_qsort3(fmap, eclass, l, r);
                 // scan bucket and generate header bits
-                cc = -(1 as libc::c_int);
+                cc = -1;
                 i = l;
                 while i <= r {
                     cc1 = eclass[fmap[i as usize] as usize] as i32;
                     if cc != cc1 {
-                        unsafe {
-                            *bhtab.offset((i >> 5 as libc::c_int) as isize) |=
-                                (1 as libc::c_int as libc::c_uint) << (i & 31 as libc::c_int)
-                        };
+                        bhtab[(i >> 5) as usize] |= (1) << (i & 31);
                         cc = cc1
                     }
                     i += 1
                 }
             }
         }
-        if verb >= 4 as libc::c_int {
+        if verb >= 4 {
             println!("%6{} unresolved strings\n\x00", nNotDone);
         }
-        H *= 2 as libc::c_int;
-        if H > nblock || nNotDone == 0 as libc::c_int {
+        H *= 2;
+        if H > nblock || nNotDone == 0 {
             break;
         }
     }
     // Reconstruct the original block in
     // eclass8 [0 .. nblock-1], since the
     // previous phase destroyed it.
-    if verb >= 4 as libc::c_int {
+    if verb >= 4 {
         println!("        reconstructing block ...\n\x00");
     }
-    j = 0 as libc::c_int;
-    i = 0 as libc::c_int;
+    j = 0;
+    i = 0;
     while i < nblock {
-        while ftabCopy[j as usize] == 0 as libc::c_int {
+        while ftabCopy[j as usize] == 0 {
             j += 1
         }
         ftabCopy[j as usize] -= 1;
