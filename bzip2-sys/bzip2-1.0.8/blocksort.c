@@ -618,88 +618,88 @@ static Int32 incs[14] = {1, 4, 13, 40, 121, 364, 1093, 3280,
                          9841, 29524, 88573, 265720,
                          797161, 2391484};
 
-static void mainSimpleSort(UInt32 *ptr,
-                           UChar *block,
-                           UInt16 *quadrant,
-                           Int32 nblock,
-                           Int32 lo,
-                           Int32 hi,
-                           Int32 d,
-                           Int32 *budget)
-{
-   Int32 i, j, h, bigN, hp;
-   UInt32 v;
+// static void mainSimpleSort(UInt32 *ptr,
+//                            UChar *block,
+//                            UInt16 *quadrant,
+//                            Int32 nblock,
+//                            Int32 lo,
+//                            Int32 hi,
+//                            Int32 d,
+//                            Int32 *budget)
+// {
+//    Int32 i, j, h, bigN, hp;
+//    UInt32 v;
 
-   bigN = hi - lo + 1;
-   if (bigN < 2)
-      return;
+//    bigN = hi - lo + 1;
+//    if (bigN < 2)
+//       return;
 
-   hp = 0;
-   while (incs[hp] < bigN)
-      hp++;
-   hp--;
+//    hp = 0;
+//    while (incs[hp] < bigN)
+//       hp++;
+//    hp--;
 
-   for (; hp >= 0; hp--)
-   {
-      h = incs[hp];
+//    for (; hp >= 0; hp--)
+//    {
+//       h = incs[hp];
 
-      i = lo + h;
-      while (True)
-      {
+//       i = lo + h;
+//       while (True)
+//       {
 
-         /*-- copy 1 --*/
-         if (i > hi)
-            break;
-         v = ptr[i];
-         j = i;
-         while (mainGtU(
-             ptr[j - h] + d, v + d, block, quadrant, nblock, budget))
-         {
-            ptr[j] = ptr[j - h];
-            j = j - h;
-            if (j <= (lo + h - 1))
-               break;
-         }
-         ptr[j] = v;
-         i++;
+//          /*-- copy 1 --*/
+//          if (i > hi)
+//             break;
+//          v = ptr[i];
+//          j = i;
+//          while (mainGtU(
+//              ptr[j - h] + d, v + d, block, quadrant, nblock, budget))
+//          {
+//             ptr[j] = ptr[j - h];
+//             j = j - h;
+//             if (j <= (lo + h - 1))
+//                break;
+//          }
+//          ptr[j] = v;
+//          i++;
 
-         /*-- copy 2 --*/
-         if (i > hi)
-            break;
-         v = ptr[i];
-         j = i;
-         while (mainGtU(
-             ptr[j - h] + d, v + d, block, quadrant, nblock, budget))
-         {
-            ptr[j] = ptr[j - h];
-            j = j - h;
-            if (j <= (lo + h - 1))
-               break;
-         }
-         ptr[j] = v;
-         i++;
+//          /*-- copy 2 --*/
+//          if (i > hi)
+//             break;
+//          v = ptr[i];
+//          j = i;
+//          while (mainGtU(
+//              ptr[j - h] + d, v + d, block, quadrant, nblock, budget))
+//          {
+//             ptr[j] = ptr[j - h];
+//             j = j - h;
+//             if (j <= (lo + h - 1))
+//                break;
+//          }
+//          ptr[j] = v;
+//          i++;
 
-         /*-- copy 3 --*/
-         if (i > hi)
-            break;
-         v = ptr[i];
-         j = i;
-         while (mainGtU(
-             ptr[j - h] + d, v + d, block, quadrant, nblock, budget))
-         {
-            ptr[j] = ptr[j - h];
-            j = j - h;
-            if (j <= (lo + h - 1))
-               break;
-         }
-         ptr[j] = v;
-         i++;
+//          /*-- copy 3 --*/
+//          if (i > hi)
+//             break;
+//          v = ptr[i];
+//          j = i;
+//          while (mainGtU(
+//              ptr[j - h] + d, v + d, block, quadrant, nblock, budget))
+//          {
+//             ptr[j] = ptr[j - h];
+//             j = j - h;
+//             if (j <= (lo + h - 1))
+//                break;
+//          }
+//          ptr[j] = v;
+//          i++;
 
-         if (*budget < 0)
-            return;
-      }
-   }
-}
+//          if (*budget < 0)
+//             return;
+//       }
+//    }
+// }
 
 /*---------------------------------------------*/
 /*--

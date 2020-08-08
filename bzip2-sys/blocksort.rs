@@ -322,7 +322,8 @@ const incs: [i32; 14] = [
     1, 4, 13, 40, 121, 364, 1093, 3280, 9841, 29524, 88573, 265720, 797161, 2391484,
 ];
 
-fn mainSimpleSort(
+#[no_mangle]
+pub extern "C" fn mainSimpleSort(
     ptr: *mut u32,
     block: *mut u8,
     quadrant: *mut u16,
@@ -336,6 +337,19 @@ fn mainSimpleSort(
     let block = unsafe { from_raw_parts_mut(block, (nblock + 8) as usize) };
     let quadrant = unsafe { from_raw_parts_mut(quadrant, (nblock + 8) as usize) };
 
+    main_simple_sort(ptr, block, quadrant, nblock, lo, hi, d, budget);
+}
+
+fn main_simple_sort(
+    ptr: &mut [u32],
+    block: &mut [u8],
+    quadrant: &mut [u16],
+    nblock: i32,
+    lo: i32,
+    hi: i32,
+    d: i32,
+    budget: *mut i32,
+) {
     let bigN = hi - lo + 1;
     if bigN < 2 {
         return;
