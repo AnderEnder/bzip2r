@@ -535,9 +535,7 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
 
 #[no_mangle]
 pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hiSt: i32) {
-    // let mut n = 0;
-    // let mut m: libc::c_int = 0;
-    let mut r: libc::c_uint = 0;
+    let mut r: i32 = 0;
     let mut stackLo: [i32; 100] = [0; 100];
     let mut stackHi: [i32; 100] = [0; 100];
 
@@ -590,7 +588,7 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
                         ltLo += 1;
                         unLo += 1
                     } else {
-                        if n > 0 as libc::c_int {
+                        if n > 0 {
                             break;
                         }
                         unLo += 1
@@ -626,8 +624,8 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
             fvswap(lo, unLo - n, n, fmap);
             let mut m = (hi - gtHi).min(gtHi - unHi);
             fvswap(unLo, hi - m + 1, m, fmap);
-            n = lo + unLo - ltLo - 1 as libc::c_int;
-            m = hi - (gtHi - unHi) + 1 as libc::c_int;
+            n = lo + unLo - ltLo - 1;
+            m = hi - (gtHi - unHi) + 1;
             if n - lo > hi - m {
                 stackLo[sp as usize] = lo;
                 stackHi[sp as usize] = n;
