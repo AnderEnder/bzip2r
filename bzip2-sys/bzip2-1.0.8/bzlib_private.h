@@ -290,6 +290,12 @@ BZ2_blockSort(EState *);
 extern void
 BZ2_compressBlock(EState *, Bool);
 
+extern void fallbackSort(UInt32 *fmap,
+                         UInt32 *eclass,
+                         UInt32 *bhtab,
+                         Int32 nblock,
+                         Int32 verb);
+
 extern void
 generateMTFValues(EState *);
 

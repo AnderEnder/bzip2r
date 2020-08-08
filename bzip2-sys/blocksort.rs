@@ -444,73 +444,88 @@ fn main_simple_sort(
     }
 }
 
-// fn BZ2_blockSort(s: &mut EState) {
-//     let ptr = s.ptr;
-//     let block =  s.block;
-//     let ftab = s.ftab;
-//     let nblock = s.nblock;
-//     let verb = s.verbosity;
-//     let wfact = s.workFactor;
+#[no_mangle]
+pub extern "C" fn BZ2_blockSort(s: &mut EState) {
+    let nblock = s.nblock;
+    let ptr_arr =
+        unsafe { from_raw_parts_mut(s.ptr, (nblock + BZ_N_OVERSHOOT as i32 + 2) as usize) };
+    let block_arr =
+        unsafe { from_raw_parts_mut(s.block, (nblock + BZ_N_OVERSHOOT as i32 + 2) as usize) };
+    // let ftab_arr = unsafe { from_raw_parts_mut(s.ftab, (nblock + 8) as usize) };
 
-//    if nblock < 10000 {
-//        unsafe {
-//             fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
-//        }
-//    } else {
-//       /* Calculate the location for quadrant, remembering to get
-//          the alignment right.  Assumes that &(block[0]) is at least
-//          2-byte aligned -- this should be ok since block is really
-//          the first section of arr2.
-//       */
-//       let i = nblock + BZ_N_OVERSHOOT as i32;
-//       if (i & 1) == 1 {
-//          i += 1;
-//       }
-//       let quadrant = block[i];
+    let ptr = s.ptr;
+    let block = s.block;
+    let ftab = s.ftab;
 
-//       /* (wfact-1) / 3 puts the default-factor-30
-//          transition point at very roughly the same place as
-//          with v0.1 and v0.9.0.
-//          Not that it particularly matters any more, since the
-//          resulting compressed stream is now the same regardless
-//          of whether or not we use the main sort or fallback sort.
-//       */
-//       if wfact < 1 {
-//          wfact = 1;
-//       }
+    let verb = s.verbosity;
+    let mut wfact = s.workFactor;
 
-//       if wfact > 100 {
-//          wfact = 100;
-//       }
-//       let budgetInit = nblock * ((wfact - 1) / 3);
-//       let budget = budgetInit;
-//       unsafe{ mainSort(ptr, block, quadrant, ftab, nblock, verb, budget) };
-//       if verb >= 3 {
-//          println!("      %{} work, %{} block, ratio %5.2{}\n",
-//                   budgetInit - budget,
-//                   nblock,
-//                   (budgetInit - budget) as f64 /
-//                       (if nblock == 0  {1} else {nblock}) as f64);
-//       }
-//       if budget < 0 {
-//          if verb >= 2 {
-//             println!("    too repetitive; using fallback sorting algorithm");
-//             unsafe {
-//                 fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
-//             }
-//       }
-//    }
+    if nblock < 10000 {
+        unsafe {
+            fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
+        }
+    } else {
+        // Calculate the location for quadrant, remembering to get
+        // the alignment right.  Assumes that &(block[0]) is at least
+        // 2-byte aligned -- this should be ok since block is really
+        // the first section of arr2.
 
-//    s.origPtr = -1;
-//    for i in 0..s.nblock {
-//       if ptr[i] == 0 {
-//          s.origPtr = i;
-//          break;
-//       }
-//     }
+        let mut i = nblock + BZ_N_OVERSHOOT as i32;
+        if (i & 1) == 1 {
+            i += 1;
+        }
+        let mut quadrant = block_arr[i as usize] as u16;
 
-//    asserth(s.origPtr != -1, 1003);
-// }
+        // (wfact-1) / 3 puts the default-factor-30
+        // transition point at very roughly the same place as
+        // with v0.1 and v0.9.0.
+        // Not that it particularly matters any more, since the
+        // resulting compressed stream is now the same regardless
+        // of whether or not we use the main sort or fallback sort.
+
+        if wfact < 1 {
+            wfact = 1;
+        }
+
+        if wfact > 100 {
+            wfact = 100;
+        }
+        let budgetInit = nblock * ((wfact - 1) / 3);
+        let mut budget = budgetInit as u32;
+
+        let budget_raw = &mut budget as *mut u32;
+        let quadrant_raw = &mut quadrant as *mut u16;
+
+        unsafe { mainSort(ptr, block, quadrant_raw, ftab, nblock, verb, budget_raw) };
+
+        if verb >= 3 {
+            println!(
+                "      %{} work, %{} block, ratio %5.2{}\n",
+                budgetInit - budget as i32,
+                nblock,
+                (budgetInit - budget as i32) as f64 / (if nblock == 0 { 1 } else { nblock }) as f64
+            );
+        }
+        if budget < 0 {
+            if verb >= 2 {
+                println!("    too repetitive; using fallback sorting algorithm");
+                unsafe {
+                    fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
+                }
+            }
+        }
+    }
+
+    s.origPtr = -1;
+    for i in 0..s.nblock {
+        if ptr_arr[i as usize] == 0 {
+            s.origPtr = i;
+            break;
+        }
+    }
+
+    asserth(s.origPtr != -1, 1003);
+}
 
 // #[no_mangle]
 // pub unsafe extern "C" fn fallbackQSort3(
