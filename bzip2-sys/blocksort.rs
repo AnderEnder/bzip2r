@@ -64,7 +64,6 @@ pub extern "C" fn mmed3(mut a: u8, mut b: u8, c: u8) -> u8 {
             b = a;
         }
     }
-
     return b;
 }
 
@@ -79,7 +78,17 @@ pub extern "C" fn mainGtU(
 ) -> u8 {
     let block = unsafe { from_raw_parts_mut(block, (nblock + 8) as usize) };
     let quadrant = unsafe { from_raw_parts_mut(quadrant, (nblock + 8) as usize) };
+    main_gtu(i1, i2, block, quadrant, nblock, budget)
+}
 
+fn main_gtu(
+    mut i1: u32,
+    mut i2: u32,
+    block: &mut [u8],
+    quadrant: &mut [u16],
+    nblock: u32,
+    budget: *mut i32,
+) -> u8 {
     assertd(i1 != i2, "mainGtU");
     /* 1 */
     let mut c1 = block[i1 as usize];
@@ -307,6 +316,121 @@ pub extern "C" fn mainGtU(
     }
 
     return 0;
+}
+
+const incs: [i32; 14] = [
+    1, 4, 13, 40, 121, 364, 1093, 3280, 9841, 29524, 88573, 265720, 797161, 2391484,
+];
+
+fn mainSimpleSort(
+    ptr: *mut u32,
+    block: *mut u8,
+    quadrant: *mut u16,
+    nblock: i32,
+    lo: i32,
+    hi: i32,
+    d: i32,
+    budget: *mut i32,
+) {
+    let ptr = unsafe { from_raw_parts_mut(ptr, (nblock + 8) as usize) };
+    let block = unsafe { from_raw_parts_mut(block, (nblock + 8) as usize) };
+    let quadrant = unsafe { from_raw_parts_mut(quadrant, (nblock + 8) as usize) };
+
+    let bigN = hi - lo + 1;
+    if bigN < 2 {
+        return;
+    }
+
+    let mut hp = 0_i32;
+    while incs[hp as usize] < bigN {
+        hp += 1;
+    }
+
+    hp -= 1;
+
+    while hp >= 0 {
+        let h = incs[hp as usize];
+
+        let mut i = lo + h;
+        loop {
+            /*-- copy 1 --*/
+            if i > hi {
+                break;
+            }
+            let mut v = ptr[i as usize];
+            let mut j = i;
+            while main_gtu(
+                (ptr[(j - h) as usize] as i32 + d) as u32,
+                (v as i32 + d) as u32,
+                block,
+                quadrant,
+                nblock as u32,
+                budget,
+            ) == 0
+            {
+                ptr[j as usize] = ptr[(j - h) as usize];
+                j = j - h;
+                if j <= (lo + h - 1) {
+                    break;
+                }
+            }
+            ptr[j as usize] = v;
+            i += 1;
+
+            /*-- copy 2 --*/
+            if i > hi {
+                break;
+            }
+            v = ptr[i as usize];
+            j = i;
+            while main_gtu(
+                (ptr[(j - h) as usize] as i32 + d) as u32,
+                (v as i32 + d) as u32,
+                block,
+                quadrant,
+                nblock as u32,
+                budget,
+            ) == 1
+            {
+                ptr[j as usize] = ptr[(j - h) as usize];
+                j = j - h;
+                if j <= (lo + h - 1) {
+                    break;
+                }
+            }
+            ptr[j as usize] = v;
+            i += 1;
+
+            /*-- copy 3 --*/
+            if i > hi {
+                break;
+            }
+            v = ptr[i as usize];
+            j = i;
+            while main_gtu(
+                (ptr[(j - h) as usize] as i32 + d) as u32,
+                (v as i32 + d) as u32,
+                block,
+                quadrant,
+                nblock as u32,
+                budget,
+            ) == 1
+            {
+                ptr[j as usize] = ptr[(j - h) as usize];
+                j = j - h;
+                if j <= (lo + h - 1) {
+                    break;
+                }
+            }
+            ptr[j as usize] = v;
+            i += 1;
+
+            if unsafe { *budget } < 0 {
+                return;
+            }
+            hp -= 1;
+        }
+    }
 }
 
 // fn BZ2_blockSort(s: &mut EState) {
