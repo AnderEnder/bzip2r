@@ -78,7 +78,7 @@ pub extern "C" fn mainGtU(
 ) -> u8 {
     let block = unsafe { from_raw_parts_mut(block, (nblock + 8) as usize) };
     let quadrant = unsafe { from_raw_parts_mut(quadrant, (nblock + 8) as usize) };
-    main_gtu(i1, i2, block, quadrant, nblock, budget)
+    main_gtu(i1, i2, block, quadrant, nblock, budget) as u8
 }
 
 fn main_gtu(
