@@ -88,13 +88,13 @@ fn main_gtu(
     quadrant: &mut [u16],
     nblock: u32,
     budget: *mut i32,
-) -> u8 {
+) -> bool {
     assertd(i1 != i2, "mainGtU");
     /* 1 */
     let mut c1 = block[i1 as usize];
     let mut c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -102,7 +102,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -110,7 +110,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -118,7 +118,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -126,7 +126,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -134,7 +134,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -142,7 +142,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -150,7 +150,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -158,7 +158,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -166,7 +166,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -174,7 +174,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -182,7 +182,7 @@ fn main_gtu(
     c1 = block[i1 as usize];
     c2 = block[i2 as usize];
     if c1 != c2 {
-        return (c1 > c2) as u8;
+        return c1 > c2;
     }
     i1 += 1;
     i2 += 1;
@@ -194,13 +194,13 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
 
         let mut s1 = quadrant[i1 as usize];
         let mut s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -208,12 +208,12 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -221,12 +221,12 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -234,12 +234,12 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -247,12 +247,12 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -260,12 +260,12 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -273,12 +273,12 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -286,13 +286,13 @@ fn main_gtu(
         c1 = block[i1 as usize];
         c2 = block[i2 as usize];
         if c1 != c2 {
-            return (c1 > c2) as u8;
+            return c1 > c2;
         }
         s1 = quadrant[i1 as usize];
         s2 = quadrant[i2 as usize];
 
         if s1 != s2 {
-            return (s1 > s2) as u8;
+            return s1 > s2;
         }
         i1 += 1;
         i2 += 1;
@@ -315,7 +315,7 @@ fn main_gtu(
         }
     }
 
-    return 0;
+    return false;
 }
 
 const incs: [i32; 14] = [
@@ -366,8 +366,7 @@ fn mainSimpleSort(
                 quadrant,
                 nblock as u32,
                 budget,
-            ) == 0
-            {
+            ) {
                 ptr[j as usize] = ptr[(j - h) as usize];
                 j = j - h;
                 if j <= (lo + h - 1) {
@@ -390,8 +389,7 @@ fn mainSimpleSort(
                 quadrant,
                 nblock as u32,
                 budget,
-            ) == 1
-            {
+            ) {
                 ptr[j as usize] = ptr[(j - h) as usize];
                 j = j - h;
                 if j <= (lo + h - 1) {
@@ -414,8 +412,7 @@ fn mainSimpleSort(
                 quadrant,
                 nblock as u32,
                 budget,
-            ) == 1
-            {
+            ) {
                 ptr[j as usize] = ptr[(j - h) as usize];
                 j = j - h;
                 if j <= (lo + h - 1) {
