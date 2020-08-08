@@ -535,8 +535,8 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
 
 #[no_mangle]
 pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hiSt: i32) {
-    let mut n = 0;
-    let mut m: libc::c_int = 0;
+    // let mut n = 0;
+    // let mut m: libc::c_int = 0;
     let mut r: libc::c_uint = 0;
     let mut stackLo: [i32; 100] = [0; 100];
     let mut stackHi: [i32; 100] = [0; 100];
@@ -550,7 +550,9 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
         .unwrap_or_default() as usize;
     let eclass = unsafe { from_raw_parts_mut(eclass, max_index + 1) };
 
-    let mut sp = fpush(&mut stackLo, &mut stackHi, 0, loSt, hiSt);
+    stackLo[0] = loSt;
+    stackHi[0] = hiSt;
+    let mut sp = 1;
 
     while sp > 0 {
         asserth(sp < 100 - 1, 1004);
@@ -582,7 +584,7 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
             let mut unHi = gtHi;
             loop {
                 while !(unLo > unHi) {
-                    n = eclass[fmap[unLo as usize] as usize] as i32 - med as i32;
+                    let n = eclass[fmap[unLo as usize] as usize] as i32 - med as i32;
                     if n == 0 {
                         fmap.swap(unLo as usize, ltLo as usize);
                         ltLo += 1;
@@ -595,7 +597,7 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
                     }
                 }
                 while !(unLo > unHi) {
-                    n = eclass[fmap[unHi as usize] as usize] as i32 - med as i32;
+                    let n = eclass[fmap[unHi as usize] as usize] as i32 - med as i32;
                     if n == 0 {
                         fmap.swap(unHi as usize, gtHi as usize);
                         gtHi -= 1;
@@ -619,29 +621,31 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
             if gtHi < ltLo {
                 continue;
             }
-            n = (ltLo - lo).min(unLo - ltLo);
+            let mut n = (ltLo - lo).min(unLo - ltLo);
 
             fvswap(lo, unLo - n, n, fmap);
-            m = (hi - gtHi).min(gtHi - unHi);
+            let mut m = (hi - gtHi).min(gtHi - unHi);
             fvswap(unLo, hi - m + 1, m, fmap);
             n = lo + unLo - ltLo - 1 as libc::c_int;
             m = hi - (gtHi - unHi) + 1 as libc::c_int;
             if n - lo > hi - m {
-                sp = fpush(&mut stackLo, &mut stackHi, sp, lo, n);
-                fpush(&mut stackLo, &mut stackHi, sp, m, hi);
+                stackLo[sp as usize] = lo;
+                stackHi[sp as usize] = n;
+                sp += 1;
+                stackLo[sp as usize] = m;
+                stackHi[sp as usize] = hi;
+                sp += 1;
             } else {
-                sp = fpush(&mut stackLo, &mut stackHi, sp, m, hi);
-                fpush(&mut stackLo, &mut stackHi, sp, lo, n);
+                stackLo[sp as usize] = m;
+                stackHi[sp as usize] = hi;
+                sp += 1;
+                stackLo[sp as usize] = lo;
+                stackHi[sp as usize] = n;
+                sp += 1;
             }
         }
     }
 }
-
-// unsafe fn fswap(zz1: *mut u32, zz2: *mut u32) {
-//     let zztmp = *zz1;
-//     *zz1 = *zz2;
-//     *zz2 = zztmp;
-// }
 
 fn fvswap(zzp1: i32, zzp2: i32, zzn: i32, fmap: &mut [u32]) {
     let mut yyp1 = zzp1;
@@ -654,14 +658,6 @@ fn fvswap(zzp1: i32, zzp2: i32, zzn: i32, fmap: &mut [u32]) {
         yyn -= 1;
     }
 }
-
-// fn fmin(a: i32, b: i32) -> i32 {
-//     if a < b {
-//         a
-//     } else {
-//         b
-//     }
-// }
 
 fn fpush(stackLo: &mut [i32; 100], stackHi: &mut [i32; 100], mut sp: i32, lz: i32, hz: i32) -> i32 {
     stackLo[sp as usize] = lz;
