@@ -702,54 +702,41 @@ pub extern "C" fn fallbackSort(
         println!("        bucket sorting ...\n\x00");
     }
     // i = 0;
-    while i < 257 {
-        ftab[i as usize] = 0;
-        i += 1
-    }
-    i = 0;
-    while i < nblock {
+    // while i < 257 {
+    //     ftab[i as usize] = 0;
+    //     i += 1
+    // }
+    for i in 0..nblock {
         ftab[eclass8[i as usize] as usize] += 1;
-        i += 1
     }
-    i = 0;
-    while i < 256 {
+    for i in 0..256 {
         ftabCopy[i as usize] = ftab[i as usize];
-        i += 1
     }
-    i = 1;
-    while i < 257 {
+    for i in 1..257 {
         ftab[i as usize] += ftab[(i - 1) as usize];
-        i += 1
     }
-    i = 0;
-    while i < nblock {
+    for i in 0..nblock {
         j = eclass8[i as usize] as i32;
         k = ftab[j as usize] - 1;
         ftab[j as usize] = k;
         fmap[k as usize] = i as u32;
-        i += 1
     }
-    nBhtab = 2 + nblock / 32;
-    i = 0;
 
-    while i < nBhtab {
+    nBhtab = 2 + nblock / 32;
+
+    for i in 0..nBhtab {
         bhtab[i as usize] = 0;
-        i += 1
     }
-    i = 0;
-    while i < 256 {
+    for i in 0..256 {
         bhtab[(ftab[i as usize] >> 5 as i32) as usize] |= (1_u32) << (ftab[i as usize] & 31_i32);
-        i += 1
     }
     // Inductively refine the buckets.  Kind-of an
     // "exponential radix sort" (!), inspired by the
     // Manber-Myers suffix array construction algorithm.
     // set sentinel bits for block-end detection
-    i = 0;
-    while i < 32 {
+    for i in 0..32 {
         bhtab[(nblock + 2 * i >> 5) as usize] |= (1_u32) << (nblock + 2 * i & 31_i32);
         bhtab[(nblock + 2 * i + 1 >> 5) as usize] &= !((1) << (nblock + 2 * i + 1 & 31_i32));
-        i += 1
     }
     // the log(N) loop
     H = 1;
@@ -758,8 +745,7 @@ pub extern "C" fn fallbackSort(
             println!("        depth %6{} has \x00", H);
         }
         j = 0;
-        i = 0;
-        while i < nblock {
+        for i in 0..nblock {
             if bhtab[(i >> 5) as usize] & (1) << (i & 31) != 0 {
                 j = i
             }
@@ -768,7 +754,6 @@ pub extern "C" fn fallbackSort(
                 k += nblock
             }
             eclass[k as usize] = j as u32;
-            i += 1
         }
         nNotDone = 0;
         r = -1;
@@ -811,14 +796,12 @@ pub extern "C" fn fallbackSort(
                 fallback_qsort3(fmap, eclass, l, r);
                 // scan bucket and generate header bits
                 cc = -1;
-                i = l;
-                while i <= r {
+                for i in l..r + 1 {
                     cc1 = eclass[fmap[i as usize] as usize] as i32;
                     if cc != cc1 {
                         bhtab[(i >> 5) as usize] |= (1) << (i & 31);
                         cc = cc1
                     }
-                    i += 1
                 }
             }
         }
@@ -837,14 +820,12 @@ pub extern "C" fn fallbackSort(
         println!("        reconstructing block ...\n\x00");
     }
     j = 0;
-    i = 0;
-    while i < nblock {
+    for i in 0..nblock {
         while ftabCopy[j as usize] == 0 {
             j += 1
         }
         ftabCopy[j as usize] -= 1;
         eclass8[fmap[i as usize] as usize] = j as u8;
-        i += 1
     }
     asserth(j < 256, 1005);
 }
