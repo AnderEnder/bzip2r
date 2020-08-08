@@ -451,7 +451,6 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
         unsafe { from_raw_parts_mut(s.ptr, (nblock + BZ_N_OVERSHOOT as i32 + 2) as usize) };
     let block_arr =
         unsafe { from_raw_parts_mut(s.block, (nblock + BZ_N_OVERSHOOT as i32 + 2) as usize) };
-    // let ftab_arr = unsafe { from_raw_parts_mut(s.ftab, (nblock + 8) as usize) };
 
     let ptr = s.ptr;
     let block = s.block;
@@ -471,10 +470,10 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
         // the first section of arr2.
 
         let mut i = nblock + BZ_N_OVERSHOOT as i32;
-        if (i & 1) == 1 {
+        if (i & 1) != 0 {
             i += 1;
         }
-        let mut quadrant = block_arr[i as usize] as u16;
+        let quadrant = &mut (block_arr[i as usize]) as *mut u8 as *mut u16;
 
         // (wfact-1) / 3 puts the default-factor-30
         // transition point at very roughly the same place as
@@ -491,12 +490,19 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
             wfact = 100;
         }
         let budgetInit = nblock * ((wfact - 1) / 3);
-        let mut budget = budgetInit as u32;
+        let mut budget = budgetInit;
 
-        let budget_raw = &mut budget as *mut u32;
-        let quadrant_raw = &mut quadrant as *mut u16;
-
-        unsafe { mainSort(ptr, block, quadrant_raw, ftab, nblock, verb, budget_raw) };
+        unsafe {
+            mainSort(
+                ptr,
+                block,
+                quadrant,
+                ftab,
+                nblock,
+                verb,
+                &mut budget as *mut i32 as *mut u32,
+            )
+        };
 
         if verb >= 3 {
             println!(
@@ -509,9 +515,9 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
         if budget < 0 {
             if verb >= 2 {
                 println!("    too repetitive; using fallback sorting algorithm");
-                unsafe {
-                    fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
-                }
+            }
+            unsafe {
+                fallbackSort(s.arr1, s.arr2, ftab, nblock, verb);
             }
         }
     }
