@@ -538,10 +538,6 @@ const FALLBACK_QSORT_STACK_SIZE: usize = 100;
 
 #[no_mangle]
 pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hiSt: i32) {
-    let mut r: i32 = 0;
-    let mut stackLo: [i32; FALLBACK_QSORT_STACK_SIZE] = [0; 100];
-    let mut stackHi: [i32; FALLBACK_QSORT_STACK_SIZE] = [0; 100];
-
     let fmap = unsafe { from_raw_parts_mut(fmap, (hiSt + 1) as usize) };
     let max_index = fmap
         .iter()
@@ -550,6 +546,13 @@ pub extern "C" fn fallbackQSort3(fmap: *mut u32, eclass: *mut u32, loSt: i32, hi
         .cloned()
         .unwrap_or_default() as usize;
     let eclass = unsafe { from_raw_parts_mut(eclass, max_index + 1) };
+    fallback_qsort3(fmap, eclass, loSt, hiSt)
+}
+
+fn fallback_qsort3(fmap: &mut [u32], eclass: &mut [u32], loSt: i32, hiSt: i32) {
+    let mut r: i32 = 0;
+    let mut stackLo: [i32; FALLBACK_QSORT_STACK_SIZE] = [0; 100];
+    let mut stackHi: [i32; FALLBACK_QSORT_STACK_SIZE] = [0; 100];
 
     stackLo[0] = loSt;
     stackHi[0] = hiSt;
@@ -669,11 +672,11 @@ fn fpush(stackLo: &mut [i32; 100], stackHi: &mut [i32; 100], mut sp: i32, lz: i3
 
 #[no_mangle]
 pub extern "C" fn fallbackSort(
-    fmap: *mut libc::c_uint,
-    eclass: *mut libc::c_uint,
-    bhtab: *mut libc::c_uint,
-    nblock: libc::c_int,
-    verb: libc::c_int,
+    fmap: *mut u32,
+    eclass: *mut u32,
+    bhtab: *mut u32,
+    nblock: i32,
+    verb: i32,
 ) {
     let mut ftab: [libc::c_int; 257] = [0; 257];
     let mut ftabCopy: [libc::c_int; 256] = [0; 256];
@@ -687,10 +690,11 @@ pub extern "C" fn fallbackSort(
     let mut cc1: i32 = 0;
     let mut nNotDone: i32 = 0;
     let mut nBhtab: i32 = 0;
-    let mut eclass8: *mut libc::c_uchar = eclass as *mut libc::c_uchar;
+    let mut eclass8 = eclass as *mut u8;
 
+    let eclass = unsafe { from_raw_parts_mut(eclass, (nblock + 1) as usize) };
     let eclass8 = unsafe { from_raw_parts_mut(eclass8, (nblock + 1) as usize) };
-
+    let fmap = unsafe { from_raw_parts_mut(fmap, (nblock + 1) as usize) };
     // Initial 1-char radix sort to generate
     // initial fmap and initial BH bits.
     if verb >= 4 {
@@ -721,7 +725,7 @@ pub extern "C" fn fallbackSort(
         j = eclass8[i as usize] as i32;
         k = ftab[j as usize] - 1;
         ftab[j as usize] = k;
-        unsafe { *fmap.offset(k as isize) = i as libc::c_uint };
+        fmap[k as usize] = i as u32;
         i += 1
     }
     nBhtab = 2 + nblock / 32;
@@ -756,7 +760,7 @@ pub extern "C" fn fallbackSort(
         }
         i += 1
     }
-    /*-- the log(N) loop --*/
+    // the log(N) loop
     H = 1 as libc::c_int;
     loop {
         if verb >= 4 as libc::c_int {
@@ -771,18 +775,17 @@ pub extern "C" fn fallbackSort(
             {
                 j = i
             }
-            k = unsafe { (*fmap.offset(i as isize)) }.wrapping_sub(H as libc::c_uint)
-                as libc::c_int;
+            k = fmap[i as usize].wrapping_sub(H as libc::c_uint) as i32;
             if k < 0 as libc::c_int {
                 k += nblock
             }
-            unsafe { *eclass.offset(k as isize) = j as libc::c_uint };
+            eclass[k as usize] = j as libc::c_uint;
             i += 1
         }
         nNotDone = 0 as libc::c_int;
         r = -(1 as libc::c_int);
         loop {
-            /*-- find the next non-singleton bucket --*/
+            // find the next non-singleton bucket
             k = r + 1 as libc::c_int;
             while unsafe { *bhtab.offset((k >> 5 as libc::c_int) as isize) }
                 & (1 as libc::c_int as libc::c_uint) << (k & 31 as libc::c_int)
@@ -841,13 +844,12 @@ pub extern "C" fn fallbackSort(
             // now [l, r] bracket current bucket
             if r > l {
                 nNotDone += r - l + 1 as libc::c_int;
-                fallbackQSort3(fmap, eclass, l, r);
+                fallback_qsort3(fmap, eclass, l, r);
                 // scan bucket and generate header bits
                 cc = -(1 as libc::c_int);
                 i = l;
                 while i <= r {
-                    cc1 =
-                        unsafe { *eclass.offset(*fmap.offset(i as isize) as isize) as libc::c_int };
+                    cc1 = eclass[fmap[i as usize] as usize] as i32;
                     if cc != cc1 {
                         unsafe {
                             *bhtab.offset((i >> 5 as libc::c_int) as isize) |=
@@ -880,7 +882,7 @@ pub extern "C" fn fallbackSort(
             j += 1
         }
         ftabCopy[j as usize] -= 1;
-        unsafe { eclass8[*fmap.offset(i as isize) as usize] = j as u8 };
+        eclass8[fmap[i as usize] as usize] = j as u8;
         i += 1
     }
     asserth(j < 256, 1005);
