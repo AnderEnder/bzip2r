@@ -710,15 +710,15 @@ pub extern "C" fn fallbackSort(
         bhtab[i as usize] = 0;
     }
     for i in 0..256 {
-        bhtab[(ftab[i as usize] >> 5 as i32) as usize] |= (1_u32) << (ftab[i as usize] & 31_i32);
+        bhtab[(ftab[i as usize] >> 5 as i32) as usize] |= (1_u32) << (ftab[i as usize] & 31);
     }
     // Inductively refine the buckets.  Kind-of an
     // "exponential radix sort" (!), inspired by the
     // Manber-Myers suffix array construction algorithm.
     // set sentinel bits for block-end detection
     for i in 0..32 {
-        bhtab[((nblock + 2 * i) >> 5) as usize] |= (1_u32) << ((nblock + 2 * i) & 31_i32);
-        bhtab[((nblock + 2 * i + 1) >> 5) as usize] &= !((1) << ((nblock + 2 * i + 1) & 31_i32));
+        bhtab[((nblock + 2 * i) >> 5) as usize] |= (1_u32) << ((nblock + 2 * i) & 31);
+        bhtab[((nblock + 2 * i + 1) >> 5) as usize] &= !((1) << ((nblock + 2 * i + 1) & 31));
     }
     // the log(N) loop
     let mut H = 1;
@@ -742,10 +742,10 @@ pub extern "C" fn fallbackSort(
         loop {
             // find the next non-singleton bucket
             let mut k = r + 1;
-            while bhtab[(k >> 5) as usize] & 1_u32 << (k & 31_i32) != 0 && k & 0x1f as i32 != 0 {
+            while bhtab[(k >> 5) as usize] & 1_u32 << (k & 31) != 0 && k & 0x1f as i32 != 0 {
                 k += 1;
             }
-            if bhtab[(k >> 5) as usize] & 1 << (k & 31_i32) != 0 {
+            if bhtab[(k >> 5) as usize] & 1 << (k & 31) != 0 {
                 while bhtab[(k >> 5) as usize] == 0xffffffff {
                     k += 32
                 }
