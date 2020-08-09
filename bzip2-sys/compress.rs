@@ -1,7 +1,7 @@
 use crate::huffman::BZ2_hbMakeCodeLengths;
 use crate::private_ffi::{
-    sendMTFValues, set_zbits, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B,
-    BZ_HDR_Z, BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
+    sendMTFValues, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z,
+    BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -498,9 +498,7 @@ pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: u8) {
     //     let raw = bits[s.nblock as usize] as *mut u8;
     //     s.zbits = raw;
     // }
-    unsafe {
-        set_zbits(s);
-    }
+    set_zbits(s);
 
     // /*-- If this is the first block, create the stream header. --*/
     if s.blockNo == 1 {
@@ -552,4 +550,8 @@ pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: u8) {
         }
         bsFinishWrite(s);
     }
+}
+
+fn set_zbits(mut s: *mut EState) {
+    unsafe { (*s).zbits = &mut *((*s).arr2 as *mut u8).offset((*s).nblock as isize) as *mut u8 };
 }
