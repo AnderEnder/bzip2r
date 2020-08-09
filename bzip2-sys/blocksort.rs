@@ -490,17 +490,15 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
         let budgetInit = nblock * ((wfact - 1) / 3);
         let mut budget = budgetInit;
 
-        unsafe {
-            mainSort(
-                ptr,
-                block,
-                quadrant,
-                ftab,
-                nblock,
-                verb,
-                &mut budget as *mut i32,
-            )
-        };
+        mainSort(
+            ptr,
+            block,
+            quadrant,
+            ftab,
+            nblock,
+            verb,
+            &mut budget as *mut i32,
+        );
 
         if verb >= 3 {
             println!(
