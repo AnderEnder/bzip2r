@@ -848,26 +848,26 @@ pub extern "C" fn mainSort(
         ftab[i] = 0;
     }
 
-    let mut j = (block[0] as u16) << 8;
+    let mut j = (block[0] as i32) << 8;
     let mut i = nblock - 1;
     while i >= 3 {
         quadrant[i as usize] = 0;
-        j = (j >> 8) | ((block[i as usize] as u16) << 8);
+        j = (j >> 8) | ((block[i as usize] as i32) << 8);
         ftab[j as usize] += 1;
         quadrant[(i - 1) as usize] = 0;
-        j = (j >> 8) | ((block[(i - 1) as usize] as u16) << 8);
+        j = (j >> 8) | ((block[(i - 1) as usize] as i32) << 8);
         ftab[j as usize] += 1;
         quadrant[(i - 2) as usize] = 0;
-        j = (j >> 8) | ((block[(i - 2) as usize] as u16) << 8);
+        j = (j >> 8) | ((block[(i - 2) as usize] as i32) << 8);
         ftab[j as usize] += 1;
         quadrant[(i - 3) as usize] = 0;
-        j = (j >> 8) | ((block[(i - 3) as usize] as u16) << 8);
+        j = (j >> 8) | ((block[(i - 3) as usize] as i32) << 8);
         ftab[j as usize] += 1;
         i -= 4
     }
     while i >= 0 {
         quadrant[i as usize] = 0;
-        j = (j >> 8) | ((block[i as usize] as u16) << 8);
+        j = (j >> 8) | ((block[i as usize] as i32) << 8);
         ftab[j as usize] += 1;
         i -= 1
     }
@@ -936,7 +936,7 @@ pub extern "C" fn mainSort(
             h = h / 3;
             for i in (h as u16)..256 {
                 let vv = runningOrder[i as usize];
-                j = i;
+                let mut j = i;
                 while bigfreq(runningOrder[(j as i32 - h) as usize], ftab) > bigfreq(vv, ftab) {
                     runningOrder[j as usize] = runningOrder[(j as i32 - h) as usize];
                     j = (j as i32 - h) as u16;
@@ -969,9 +969,9 @@ pub extern "C" fn mainSort(
         for j in 0..256 {
             if j != ss {
                 let sb = (ss << 8) + j;
-                if !((ftab[sb as usize] & SETMASK) == 1) {
+                if !(ftab[sb as usize] & SETMASK) == 1 {
                     let lo = (ftab[sb as usize] & CLEARMASK) as i32;
-                    let hi = ((ftab[(sb + 1) as usize] & CLEARMASK) - 1) as i32;
+                    let hi = (ftab[(sb + 1) as usize] & CLEARMASK) as i32 - 1;
                     if hi > lo {
                         if verb >= 4 {
                             println!(
@@ -1014,9 +1014,13 @@ pub extern "C" fn mainSort(
         {
             for j in 0..256 {
                 copyStart[j as usize] = (ftab[((j << 8) + ss) as usize] & CLEARMASK) as i32;
-                copyEnd[j as usize] = ((ftab[((j << 8) + ss + 1) as usize] & CLEARMASK) - 1) as i32;
+                copyEnd[j as usize] = (ftab[((j << 8) + ss + 1) as usize] & CLEARMASK) as i32 - 1;
             }
-            for j in (ftab[(ss << 8) as usize] & CLEARMASK) as i32..copyStart[ss as usize] {
+
+            let start1 = ftab[(ss << 8) as usize] & CLEARMASK;
+            let end1 = copyStart[ss as usize];
+
+            for j in start1 as i32..end1 {
                 let mut k = ptr[j as usize] as i32 - 1;
                 if k < 0 {
                     k += nblock;
@@ -1027,9 +1031,13 @@ pub extern "C" fn mainSort(
                     ptr[copyStart[c1 as usize] as usize] = k as u32;
                 }
             }
-            for j in
-                (copyEnd[ss as usize]..(ftab[((ss + 1) << 8) as usize] & CLEARMASK) as i32).rev()
-            {
+
+            // check
+            let start2 = copyEnd[ss as usize];
+            let end2 = ftab[((ss + 1) << 8) as usize] & CLEARMASK;
+            println!("Debug: {} - {}", start2, end2);
+
+            for j in (end2 as i32..start2).rev() {
                 let mut k = ptr[j as usize] as i32 - 1;
                 if k < 0 {
                     k += nblock;
