@@ -676,12 +676,6 @@ pub extern "C" fn fallbackSort(
 ) {
     let mut ftab: [libc::c_int; 257] = [0; 257];
     let mut ftabCopy: [libc::c_int; 256] = [0; 256];
-    let mut k: i32 = 0;
-    let mut l: i32 = 0;
-    let mut r: i32 = 0;
-    let mut cc: i32 = 0;
-    let mut cc1: i32 = 0;
-    let mut nNotDone: i32 = 0;
     let eclass8 = eclass as *mut u8;
 
     let eclass = unsafe { from_raw_parts_mut(eclass, (nblock + 1) as usize) };
@@ -705,7 +699,7 @@ pub extern "C" fn fallbackSort(
     }
     for i in 0..nblock {
         let j = eclass8[i as usize] as i32;
-        k = ftab[j as usize] - 1;
+        let k = ftab[j as usize] - 1;
         ftab[j as usize] = k;
         fmap[k as usize] = i as u32;
     }
@@ -737,17 +731,17 @@ pub extern "C" fn fallbackSort(
             if bhtab[(i >> 5) as usize] & 1 << (i & 31) != 0 {
                 j = i
             }
-            k = fmap[i as usize].wrapping_sub(H as u32) as i32;
+            let mut k = fmap[i as usize].wrapping_sub(H as u32) as i32;
             if k < 0 {
                 k += nblock
             }
             eclass[k as usize] = j as u32;
         }
-        nNotDone = 0;
-        r = -1;
+        let mut nNotDone = 0;
+        let mut r = -1;
         loop {
             // find the next non-singleton bucket
-            k = r + 1;
+            let mut k = r + 1;
             while bhtab[(k >> 5) as usize] & 1_u32 << (k & 31_i32) != 0 && k & 0x1f as i32 != 0 {
                 k += 1;
             }
@@ -759,7 +753,7 @@ pub extern "C" fn fallbackSort(
                     k += 1
                 }
             }
-            l = k - 1;
+            let l = k - 1;
             if l >= nblock {
                 break;
             }
@@ -783,9 +777,9 @@ pub extern "C" fn fallbackSort(
                 nNotDone += r - l + 1;
                 fallback_qsort3(fmap, eclass, l, r);
                 // scan bucket and generate header bits
-                cc = -1;
+                let mut cc = -1;
                 for i in l..r + 1 {
-                    cc1 = eclass[fmap[i as usize] as usize] as i32;
+                    let cc1 = eclass[fmap[i as usize] as usize] as i32;
                     if cc != cc1 {
                         bhtab[(i >> 5) as usize] |= 1 << (i & 31);
                         cc = cc1
