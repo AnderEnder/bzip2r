@@ -676,15 +676,13 @@ pub extern "C" fn fallbackSort(
 ) {
     let mut ftab: [libc::c_int; 257] = [0; 257];
     let mut ftabCopy: [libc::c_int; 256] = [0; 256];
-    // let mut H: i32 = 0;
-    // let mut j: i32 = 0;
     let mut k: i32 = 0;
     let mut l: i32 = 0;
     let mut r: i32 = 0;
     let mut cc: i32 = 0;
     let mut cc1: i32 = 0;
     let mut nNotDone: i32 = 0;
-    let mut eclass8 = eclass as *mut u8;
+    let eclass8 = eclass as *mut u8;
 
     let eclass = unsafe { from_raw_parts_mut(eclass, (nblock + 1) as usize) };
     let eclass8 = unsafe { from_raw_parts_mut(eclass8, (nblock + 1) as usize) };
@@ -695,11 +693,7 @@ pub extern "C" fn fallbackSort(
     if verb >= 4 {
         println!("        bucket sorting ...\n\x00");
     }
-    // i = 0;
-    // while i < 257 {
-    //     ftab[i as usize] = 0;
-    //     i += 1
-    // }
+
     for i in 0..nblock {
         ftab[eclass8[i as usize] as usize] += 1;
     }
@@ -729,8 +723,8 @@ pub extern "C" fn fallbackSort(
     // Manber-Myers suffix array construction algorithm.
     // set sentinel bits for block-end detection
     for i in 0..32 {
-        bhtab[(nblock + 2 * i >> 5) as usize] |= (1_u32) << (nblock + 2 * i & 31_i32);
-        bhtab[(nblock + 2 * i + 1 >> 5) as usize] &= !((1) << (nblock + 2 * i + 1 & 31_i32));
+        bhtab[((nblock + 2 * i) >> 5) as usize] |= (1_u32) << ((nblock + 2 * i) & 31_i32);
+        bhtab[((nblock + 2 * i + 1) >> 5) as usize] &= !((1) << ((nblock + 2 * i + 1) & 31_i32));
     }
     // the log(N) loop
     let mut H = 1;
@@ -740,7 +734,7 @@ pub extern "C" fn fallbackSort(
         }
         let mut j = 0;
         for i in 0..nblock {
-            if bhtab[(i >> 5) as usize] & (1) << (i & 31) != 0 {
+            if bhtab[(i >> 5) as usize] & 1 << (i & 31) != 0 {
                 j = i
             }
             k = fmap[i as usize].wrapping_sub(H as u32) as i32;
@@ -754,7 +748,7 @@ pub extern "C" fn fallbackSort(
         loop {
             // find the next non-singleton bucket
             k = r + 1;
-            while bhtab[(k >> 5) as usize] & (1_u32) << (k & 31_i32) != 0 && k & 0x1f as i32 != 0 {
+            while bhtab[(k >> 5) as usize] & 1_u32 << (k & 31_i32) != 0 && k & 0x1f as i32 != 0 {
                 k += 1;
             }
             if bhtab[(k >> 5) as usize] & 1 << (k & 31_i32) != 0 {
@@ -769,14 +763,14 @@ pub extern "C" fn fallbackSort(
             if l >= nblock {
                 break;
             }
-            while bhtab[(k >> 5) as usize] & (1) << (k & 31) == 0 && k & 0x1f != 0 {
+            while bhtab[(k >> 5) as usize] & 1 << (k & 31) == 0 && k & 0x1f != 0 {
                 k += 1
             }
-            if bhtab[(k >> 5) as usize] & (1) << (k & 31) == 0 {
+            if bhtab[(k >> 5) as usize] & 1 << (k & 31) == 0 {
                 while bhtab[(k >> 5) as usize] == 0 {
                     k += 32
                 }
-                while bhtab[(k >> 5) as usize] & (1) << (k & 31) == 0 {
+                while bhtab[(k >> 5) as usize] & 1 << (k & 31) == 0 {
                     k += 1
                 }
             }
@@ -793,7 +787,7 @@ pub extern "C" fn fallbackSort(
                 for i in l..r + 1 {
                     cc1 = eclass[fmap[i as usize] as usize] as i32;
                     if cc != cc1 {
-                        bhtab[(i >> 5) as usize] |= (1) << (i & 31);
+                        bhtab[(i >> 5) as usize] |= 1 << (i & 31);
                         cc = cc1
                     }
                 }
