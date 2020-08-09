@@ -552,6 +552,6 @@ pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: u8) {
     }
 }
 
-fn set_zbits(mut s: *mut EState) {
-    unsafe { (*s).zbits = &mut *((*s).arr2 as *mut u8).offset((*s).nblock as isize) as *mut u8 };
+fn set_zbits(s: &mut EState) {
+    s.zbits = unsafe { &mut *(s.arr2 as *mut u8).offset(s.nblock as isize) as *mut u8 };
 }
