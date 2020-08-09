@@ -1,4 +1,4 @@
-use crate::private_ffi::{mainSort, EState, BZ_N_OVERSHOOT};
+use crate::private_ffi::{mainQSort3, EState, BZ_N_OVERSHOOT, BZ_N_RADIX};
 use compress::{assertd, asserth};
 use std::slice::from_raw_parts_mut;
 
@@ -498,7 +498,7 @@ pub extern "C" fn BZ2_blockSort(s: &mut EState) {
                 ftab,
                 nblock,
                 verb,
-                &mut budget as *mut i32 as *mut u32,
+                &mut budget as *mut i32,
             )
         };
 
@@ -810,4 +810,319 @@ pub extern "C" fn fallbackSort(
         eclass8[fmap[i as usize] as usize] = j as u8;
     }
     asserth(j < 256, 1005);
+}
+
+fn bigfreq(b: i32, ftab: &mut [u32]) -> u32 {
+    ftab[((b + 1) << 8) as usize] - ftab[(b << 8) as usize]
+}
+
+const SETMASK: u32 = 1 << 21;
+const CLEARMASK: u32 = !SETMASK;
+
+#[no_mangle]
+pub extern "C" fn mainSort(
+    ptr_raw: *mut u32,
+    block_raw: *mut u8,
+    quadrant_raw: *mut u16,
+    ftab: *mut u32,
+    nblock: i32,
+    verb: i32,
+    budget: *mut i32,
+) {
+    let ptr = unsafe { from_raw_parts_mut(ptr_raw, (nblock + BZ_N_OVERSHOOT as i32) as usize) };
+    let block = unsafe { from_raw_parts_mut(block_raw, (nblock + BZ_N_OVERSHOOT as i32) as usize) };
+    let ftab = unsafe { from_raw_parts_mut(ftab, (nblock + BZ_N_OVERSHOOT as i32) as usize) };
+    let quadrant =
+        unsafe { from_raw_parts_mut(quadrant_raw, (nblock + BZ_N_OVERSHOOT as i32) as usize) };
+    let mut bigDone = [false; 256];
+    let mut runningOrder = [0_i32; 256];
+    let mut copyStart = [0_i32; 256];
+    let mut copyEnd = [0_i32; 256];
+
+    if verb >= 4 {
+        println!("        main sort initialise ...");
+    }
+
+    // set up the 2-byte frequency table
+    for i in 0..65536 + 1 {
+        ftab[i] = 0;
+    }
+
+    let mut j = (block[0] as u16) << 8;
+    let mut i = nblock - 1;
+    while i >= 3 {
+        quadrant[i as usize] = 0;
+        j = (j >> 8) | ((block[i as usize] as u16) << 8);
+        ftab[j as usize] += 1;
+        quadrant[(i - 1) as usize] = 0;
+        j = (j >> 8) | ((block[(i - 1) as usize] as u16) << 8);
+        ftab[j as usize] += 1;
+        quadrant[(i - 2) as usize] = 0;
+        j = (j >> 8) | ((block[(i - 2) as usize] as u16) << 8);
+        ftab[j as usize] += 1;
+        quadrant[(i - 3) as usize] = 0;
+        j = (j >> 8) | ((block[(i - 3) as usize] as u16) << 8);
+        ftab[j as usize] += 1;
+        i -= 4
+    }
+    while i >= 0 {
+        quadrant[i as usize] = 0;
+        j = (j >> 8) | ((block[i as usize] as u16) << 8);
+        ftab[j as usize] += 1;
+        i -= 1
+    }
+
+    // (emphasises close relationship of block & quadrant)
+    for i in 0..BZ_N_OVERSHOOT as i32 {
+        block[(nblock + i) as usize] = block[i as usize];
+        quadrant[(nblock + i) as usize] = 0;
+    }
+
+    if verb >= 4 {
+        println!("        bucket sorting ...");
+    }
+
+    // Complete the initial radix sort
+    for i in 1..65536 + 1 {
+        ftab[i] += ftab[i - 1];
+    }
+
+    let mut s = (block[0] as u16) << 8;
+    i = nblock - 1;
+    while i >= 3 {
+        s = (s >> 8) as u16 | ((block[i as usize] as u16) << 8);
+        let mut j = ftab[s as usize] - 1;
+        ftab[s as usize] = j;
+        ptr[j as usize] = i as u32;
+        s = (s >> 8) | ((block[(i - 1) as usize] as u16) << 8);
+        j = ftab[s as usize] - 1;
+        ftab[s as usize] = j;
+        ptr[j as usize] = (i - 1) as u32;
+        s = (s >> 8) | ((block[(i - 2) as usize] as u16) << 8);
+        j = ftab[s as usize] - 1;
+        ftab[s as usize] = j;
+        ptr[j as usize] = (i - 2) as u32;
+        s = (s >> 8) | ((block[(i - 3) as usize] as u16) << 8);
+        j = ftab[s as usize] - 1;
+        ftab[s as usize] = j;
+        ptr[j as usize] = (i - 3) as u32;
+        i -= 4
+    }
+    while i >= 0 {
+        s = (s >> 8) | ((block[i as usize] as u16) << 8);
+        let j = ftab[s as usize] - 1;
+        ftab[s as usize] = j;
+        ptr[j as usize] = i as u32;
+        i -= 1;
+    }
+
+    // Now ftab contains the first loc of every small bucket.
+    // Calculate the running order, from smallest to largest
+    // big bucket.
+
+    for i in 0..256 {
+        // should be false
+        bigDone[i as usize] = false;
+        runningOrder[i as usize] = i;
+    }
+
+    {
+        let mut h = 1_i32;
+        while h <= 256 {
+            h = 3 * h + 1;
+        }
+
+        while h != 1 {
+            h = h / 3;
+            for i in (h as u16)..256 {
+                let vv = runningOrder[i as usize];
+                j = i;
+                while bigfreq(runningOrder[(j as i32 - h) as usize], ftab) > bigfreq(vv, ftab) {
+                    runningOrder[j as usize] = runningOrder[(j as i32 - h) as usize];
+                    j = (j as i32 - h) as u16;
+                    if j <= (h - 1) as u16 {
+                        break;
+                    }
+                }
+                runningOrder[j as usize] = vv;
+            }
+        }
+    }
+
+    // The main sorting loop.
+    let mut numQSorted = 0;
+
+    for i in 0..256 {
+        //  Process big buckets, starting with the least full.
+        //  Basically this is a 3-step process in which we call
+        //  mainQSort3 to sort the small buckets [ss, j], but
+        //  also make a big effort to avoid the calls if we can.
+        let ss = runningOrder[i];
+
+        //  Step 1:
+        //  Complete the big bucket [ss] by quicksorting
+        //  any unsorted small buckets [ss, j], for j != ss.
+        //  Hopefully previous pointer-scanning phases have already
+        //  completed many of the small buckets [ss, j], so
+        //  we don't have to sort them at all.
+
+        for j in 0..256 {
+            if j != ss {
+                let sb = (ss << 8) + j;
+                if !((ftab[sb as usize] & SETMASK) == 1) {
+                    let lo = (ftab[sb as usize] & CLEARMASK) as i32;
+                    let hi = ((ftab[(sb + 1) as usize] & CLEARMASK) - 1) as i32;
+                    if hi > lo {
+                        if verb >= 4 {
+                            println!(
+                                "        qsort [0x%x{}, 0x%x{}]   done %{}   this %{}",
+                                ss,
+                                j,
+                                numQSorted,
+                                hi - lo + 1
+                            );
+                        }
+                        unsafe {
+                            mainQSort3(
+                                ptr_raw,
+                                block_raw,
+                                quadrant_raw,
+                                nblock,
+                                lo,
+                                hi,
+                                BZ_N_RADIX as i32,
+                                budget as *mut u32,
+                            );
+                        }
+                        numQSorted += hi - lo + 1;
+                        if unsafe { *budget } < 0 {
+                            return;
+                        }
+                    }
+                }
+                ftab[sb as usize] |= SETMASK;
+            }
+        }
+
+        asserth(!bigDone[ss as usize], 1006);
+
+        //  Step 2:
+        //  Now scan this big bucket [ss] so as to synthesise the
+        //  sorted order for small buckets [t, ss] for all t,
+        //  including, magically, the bucket [ss,ss] too.
+        //  This will avoid doing Real Work in subsequent Step 1's.
+        {
+            for j in 0..256 {
+                copyStart[j as usize] = (ftab[((j << 8) + ss) as usize] & CLEARMASK) as i32;
+                copyEnd[j as usize] = ((ftab[((j << 8) + ss + 1) as usize] & CLEARMASK) - 1) as i32;
+            }
+            for j in (ftab[(ss << 8) as usize] & CLEARMASK) as i32..copyStart[ss as usize] {
+                let mut k = ptr[j as usize] as i32 - 1;
+                if k < 0 {
+                    k += nblock;
+                }
+                let c1 = block[k as usize];
+                if !bigDone[c1 as usize] {
+                    copyStart[c1 as usize] += 1;
+                    ptr[copyStart[c1 as usize] as usize] = k as u32;
+                }
+            }
+            for j in
+                (copyEnd[ss as usize]..(ftab[((ss + 1) << 8) as usize] & CLEARMASK) as i32).rev()
+            {
+                let mut k = ptr[j as usize] as i32 - 1;
+                if k < 0 {
+                    k += nblock;
+                }
+                let c1 = block[k as usize];
+                if !bigDone[c1 as usize] {
+                    copyEnd[c1 as usize] -= 1;
+                    ptr[copyEnd[c1 as usize] as usize] = k as u32;
+                }
+            }
+        }
+
+        asserth(
+            (copyStart[ss as usize] - 1 == copyEnd[ss as usize]) ||
+                // Extremely rare case missing in bzip2-1.0.0 and 1.0.1.
+                // Necessity for this case is demonstrated by compressing
+                // a sequence of approximately 48.5 million of character
+                // 251; 1.0.0/1.0.1 will then die here.
+                  (copyStart[ss as usize] == 0 && copyEnd[ss as usize] == nblock - 1),
+            1007,
+        );
+
+        for j in 0..256 {
+            ftab[((j << 8) + ss) as usize] |= SETMASK;
+        }
+
+        //  Step 3:
+        //  The [ss] big bucket is now done.  Record this fact,
+        //  and update the quadrant descriptors.  Remember to
+        //  update quadrants in the overshoot area too, if
+        //  necessary.  The "if (i < 255)" test merely skips
+        //  this updating for the last bucket processed, since
+        //  updating for the last bucket is pointless.
+
+        //  The quadrant array provides a way to incrementally
+        //  cache sort orderings, as they appear, so as to
+        //  make subsequent comparisons in fullGtU() complete
+        //  faster.  For repetitive blocks this makes a big
+        //  difference (but not big enough to be able to avoid
+        //  the fallback sorting mechanism, exponential radix sort).
+
+        //  The precise meaning is: at all times:
+
+        //     for 0 <= i < nblock and 0 <= j <= nblock
+
+        //     if block[i] != block[j],
+
+        //        then the relative values of quadrant[i] and
+        //             quadrant[j] are meaningless.
+
+        //        else {
+        //           if quadrant[i] < quadrant[j]
+        //              then the string starting at i lexicographically
+        //              precedes the string starting at j
+
+        //           else if quadrant[i] > quadrant[j]
+        //              then the string starting at j lexicographically
+        //              precedes the string starting at i
+
+        //           else
+        //              the relative ordering of the strings starting
+        //              at i and j has not yet been determined.
+        //        }
+
+        bigDone[ss as usize] = true;
+
+        if i < 255 {
+            let bbStart = (ftab[(ss << 8) as usize] & CLEARMASK) as i32;
+            let bbSize = (ftab[((ss + 1) << 8) as usize] & CLEARMASK) as i32 - bbStart;
+            let mut shifts = 0_i32;
+
+            while (bbSize >> shifts) > 65534 {
+                shifts += 1;
+            }
+
+            for j in (0..bbSize).rev() {
+                let a2update = ptr[(bbStart + j as i32) as usize];
+                let qVal = (j >> shifts) as u16;
+                quadrant[a2update as usize] = qVal;
+                if a2update < BZ_N_OVERSHOOT {
+                    quadrant[(a2update as i32 + nblock) as usize] = qVal;
+                }
+            }
+            asserth(((bbSize - 1) >> shifts) <= 65535, 1002);
+        }
+    }
+
+    if verb >= 4 {
+        println!(
+            "        %{} pointers, %{} sorted, %{} scanned",
+            nblock,
+            numQSorted,
+            nblock - numQSorted
+        );
+    }
 }

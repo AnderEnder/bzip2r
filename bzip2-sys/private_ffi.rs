@@ -13291,6 +13291,19 @@ extern "C" {
 }
 
 extern "C" {
+    pub fn mainQSort3(
+        ptr: *mut u32,
+        block: *mut u8,
+        quadrant: *mut u16,
+        nblock: i32,
+        loSt: i32,
+        hiSt: i32,
+        dSt: i32,
+        budget: *mut u32,
+    );
+}
+
+extern "C" {
     pub fn BZ2_compressBlock(arg1: *mut EState, arg2: Bool);
 }
 extern "C" {
