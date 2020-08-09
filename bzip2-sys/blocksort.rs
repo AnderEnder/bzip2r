@@ -922,7 +922,7 @@ pub extern "C" fn mainSort(
 
     for i in 0..256 {
         // should be false
-        bigDone[i as usize] = false;
+        // bigDone[i as usize] = false;
         runningOrder[i as usize] = i;
     }
 
@@ -932,19 +932,22 @@ pub extern "C" fn mainSort(
             h = 3 * h + 1;
         }
 
-        while h != 1 {
+        loop {
             h = h / 3;
-            for i in (h as u16)..256 {
+            for i in h..256 {
                 let vv = runningOrder[i as usize];
                 let mut j = i;
-                while bigfreq(runningOrder[(j as i32 - h) as usize], ftab) > bigfreq(vv, ftab) {
-                    runningOrder[j as usize] = runningOrder[(j as i32 - h) as usize];
-                    j = (j as i32 - h) as u16;
-                    if j <= (h - 1) as u16 {
+                while bigfreq(runningOrder[(j - h) as usize], ftab) > bigfreq(vv, ftab) {
+                    runningOrder[j as usize] = runningOrder[(j - h) as usize];
+                    j -= h;
+                    if j <= h - 1 {
                         break;
                     }
                 }
                 runningOrder[j as usize] = vv;
+            }
+            if h == 1 {
+                break;
             }
         }
     }
@@ -969,7 +972,7 @@ pub extern "C" fn mainSort(
         for j in 0..256 {
             if j != ss {
                 let sb = (ss << 8) + j;
-                if !(ftab[sb as usize] & SETMASK) == 1 {
+                if !(ftab[sb as usize] & SETMASK) > 0 {
                     let lo = (ftab[sb as usize] & CLEARMASK) as i32;
                     let hi = (ftab[(sb + 1) as usize] & CLEARMASK) as i32 - 1;
                     if hi > lo {
@@ -1032,20 +1035,18 @@ pub extern "C" fn mainSort(
                 }
             }
 
-            // check
-            let start2 = copyEnd[ss as usize];
-            let end2 = ftab[((ss + 1) << 8) as usize] & CLEARMASK;
-            println!("Debug: {} - {}", start2, end2);
+            let start2 = (copyEnd[ss as usize] + 1) as usize;
+            let end2 = (ftab[((ss + 1) << 8) as usize] & CLEARMASK) as usize;
 
-            for j in (end2 as i32..start2).rev() {
+            for j in (start2..end2).rev() {
                 let mut k = ptr[j as usize] as i32 - 1;
                 if k < 0 {
                     k += nblock;
                 }
-                let c1 = block[k as usize];
-                if !bigDone[c1 as usize] {
-                    copyEnd[c1 as usize] -= 1;
-                    ptr[copyEnd[c1 as usize] as usize] = k as u32;
+                let c1 = block[k as usize] as usize;
+                if !bigDone[c1] {
+                    copyEnd[c1] -= 1;
+                    ptr[copyEnd[c1] as usize] = k as u32;
                 }
             }
         }
