@@ -27,7 +27,7 @@ fn main() {
     cfg.include("bzip2-1.0.8")
         .define("_FILE_OFFSET_BITS", Some("64"))
         .define("BZ_NO_STDIO", None)
-        .file("bzip2-1.0.8/blocksort.c")
+        //.file("bzip2-1.0.8/blocksort.c")
         //.file("bzip2-1.0.8/huffman.c")
         // .file("bzip2-1.0.8/crctable.c")
         // .file("bzip2-1.0.8/randtable.c")

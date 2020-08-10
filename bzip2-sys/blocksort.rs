@@ -983,18 +983,17 @@ pub extern "C" fn mainSort(
                                 hi - lo + 1
                             );
                         }
-                        unsafe {
-                            mainQSort3(
-                                ptr_raw,
-                                block_raw,
-                                quadrant_raw,
-                                nblock,
-                                lo,
-                                hi,
-                                BZ_N_RADIX as i32,
-                                budget,
-                            );
-                        }
+                        mainQSort3(
+                            ptr_raw,
+                            block_raw,
+                            quadrant_raw,
+                            nblock,
+                            lo,
+                            hi,
+                            BZ_N_RADIX as i32,
+                            budget,
+                        );
+
                         numQSorted += hi - lo + 1;
                         if unsafe { *budget } < 0 {
                             return;
