@@ -508,6 +508,9 @@ extern Int32
 BZ2_decompress(DState *);
 
 extern void
+makeMaps_d(DState *s);
+
+extern void
 BZ2_hbCreateDecodeTables(Int32 *, Int32 *, Int32 *, UChar *,
                          Int32, Int32, Int32);
 
