@@ -1,4 +1,4 @@
-use crate::private_ffi::{mainQSort3, EState, BZ_N_OVERSHOOT, BZ_N_RADIX};
+use crate::private_ffi::{EState, BZ_N_OVERSHOOT, BZ_N_QSORT, BZ_N_RADIX};
 use compress::{assertd, asserth};
 use std::slice::from_raw_parts_mut;
 
@@ -992,7 +992,7 @@ pub extern "C" fn mainSort(
                                 lo,
                                 hi,
                                 BZ_N_RADIX as i32,
-                                budget as *mut u32,
+                                budget,
                             );
                         }
                         numQSorted += hi - lo + 1;
@@ -1132,4 +1132,201 @@ pub extern "C" fn mainSort(
             nblock - numQSorted
         );
     }
+}
+
+const MAIN_QSORT_SMALL_THRESH: u32 = 20;
+const MAIN_QSORT_DEPTH_THRESH: u32 = BZ_N_RADIX + BZ_N_QSORT;
+const MAIN_QSORT_STACK_SIZE: usize = 100;
+
+fn mainQSort3(
+    ptr_raw: *mut u32,
+    block_raw: *mut u8,
+    quadrant: *mut u16,
+    nblock: i32,
+    loSt: i32,
+    hiSt: i32,
+    dSt: i32,
+    budget: *mut i32,
+) {
+    //    Int32 unLo, unHi, ltLo, gtHi, n, m, med;
+    //    Int32 sp, lo, hi, d;
+    let ptr = unsafe { from_raw_parts_mut(ptr_raw, (nblock + BZ_N_OVERSHOOT as i32) as usize) };
+    let block = unsafe { from_raw_parts_mut(block_raw, (nblock + BZ_N_OVERSHOOT as i32) as usize) };
+
+    let mut stackLo = [0_i32; MAIN_QSORT_STACK_SIZE];
+    let mut stackHi = [0_i32; MAIN_QSORT_STACK_SIZE];
+    let mut stackD = [0_i32; MAIN_QSORT_STACK_SIZE];
+
+    let mut nextLo = [0_i32; 3];
+    let mut nextHi = [0_i32; 3];
+    let mut nextD = [0_i32; 3];
+
+    let mut sp = 0;
+    // mpush(loSt, hiSt, dSt);
+    stackLo[sp] = loSt;
+    stackHi[sp] = hiSt;
+    stackD[sp] = dSt;
+    sp += 1;
+
+    while sp > 0 {
+        asserth(sp < MAIN_QSORT_STACK_SIZE - 2, 1001);
+
+        // mpop(lo, hi, d);
+        sp -= 1;
+        let lo = stackLo[sp];
+        let hi = stackHi[sp];
+        let d = stackD[sp];
+
+        if hi - lo < MAIN_QSORT_SMALL_THRESH as i32 || d > MAIN_QSORT_DEPTH_THRESH as i32 {
+            mainSimpleSort(ptr_raw, block_raw, quadrant, nblock, lo, hi, d, budget);
+            if unsafe { *budget } < 0 {
+                return;
+            }
+            continue;
+        }
+
+        let med = mmed3(
+            block[(ptr[lo as usize] as i32 + d) as usize],
+            block[(ptr[hi as usize] as i32 + d) as usize],
+            block[(ptr[((lo + hi) >> 1) as usize] as i32 + d) as usize],
+        ) as i32;
+
+        let mut unLo = lo;
+        let mut ltLo = lo;
+        let mut unHi = hi;
+        let mut gtHi = hi;
+
+        loop {
+            loop {
+                if unLo > unHi {
+                    break;
+                }
+                let n = block[(ptr[unLo as usize] as i32 + d) as usize] as i32 - med;
+                if n == 0 {
+                    // mswap(ptr[unLo], ptr[ltLo]);
+                    ptr.swap(unLo as usize, ltLo as usize);
+                    ltLo += 1;
+                    unLo += 1;
+                    continue;
+                };
+                if n > 0 {
+                    break;
+                }
+                unLo += 1;
+            }
+
+            loop {
+                if unLo > unHi {
+                    break;
+                }
+                let n = block[(ptr[unHi as usize] as i32 + d) as usize] as i32 - med;
+                if n == 0 {
+                    // mswap(ptr[unHi], ptr[gtHi]);
+                    ptr.swap(unHi as usize, gtHi as usize);
+
+                    gtHi -= 1;
+                    unHi -= 1;
+                    continue;
+                };
+                if n < 0 {
+                    break;
+                }
+                unHi -= 1;
+            }
+            if unLo > unHi {
+                break;
+            }
+            // mswap(ptr[unLo], ptr[unHi]);
+            ptr.swap(unLo as usize, unHi as usize);
+
+            unLo += 1;
+            unHi -= 1;
+        }
+
+        assertd(unHi == unLo - 1, "mainQSort3(2)");
+
+        if gtHi < ltLo {
+            // mpush(lo, hi, d + 1);
+            stackLo[sp] = lo;
+            stackHi[sp] = hi;
+            stackD[sp] = d + 1;
+            sp += 1;
+            continue;
+        }
+
+        let mut n = (ltLo - lo).min(unLo - ltLo);
+        mvswap(ptr, lo, unLo - n, n);
+        let mut m = (hi - gtHi).min(gtHi - unHi);
+        mvswap(ptr, unLo, hi - m + 1, m);
+
+        n = lo + unLo - ltLo - 1;
+        m = hi - (gtHi - unHi) + 1;
+
+        nextLo[0] = lo;
+        nextHi[0] = n;
+        nextD[0] = d;
+        nextLo[1] = m;
+        nextHi[1] = hi;
+        nextD[1] = d;
+        nextLo[2] = n + 1;
+        nextHi[2] = m - 1;
+        nextD[2] = d + 1;
+
+        // if mnextsize(0) < mnextsize(1) {
+        if (nextHi[0] - nextLo[0]) < (nextHi[1] - nextLo[1]) {
+            mnextswap(&mut nextLo, &mut nextHi, &mut nextD, 0, 1);
+        }
+        // if mnextsize(1) < mnextsize(2) {
+        if (nextHi[1] - nextLo[1]) < (nextHi[2] - nextLo[2]) {
+            mnextswap(&mut nextLo, &mut nextHi, &mut nextD, 1, 2);
+        }
+        // if mnextsize(0) < mnextsize(1) {
+        if (nextHi[0] - nextLo[0]) < (nextHi[1] - nextLo[1]) {
+            mnextswap(&mut nextLo, &mut nextHi, &mut nextD, 0, 1);
+        }
+
+        assertd(
+            (nextHi[0] - nextLo[0]) >= (nextHi[1] - nextLo[1]),
+            "mainQSort3(8)",
+        );
+        assertd(
+            (nextHi[1] - nextLo[1]) >= (nextHi[2] - nextLo[2]),
+            "mainQSort3(9)",
+        );
+
+        // mpush(nextLo[0], nextHi[0], nextD[0]);
+        // mpush(nextLo[1], nextHi[1], nextD[1]);
+        // mpush(nextLo[2], nextHi[2], nextD[2]);
+        for i in 0..3 {
+            stackLo[sp] = nextLo[i];
+            stackHi[sp] = nextHi[i];
+            stackD[sp] = nextD[i];
+            sp += 1;
+        }
+    }
+}
+
+fn mvswap(ptr: &mut [u32], zzp1: i32, zzp2: i32, zzn: i32) {
+    let mut yyp1 = zzp1;
+    let mut yyp2 = zzp2;
+    let mut yyn = zzn;
+    while yyn > 0 {
+        // mswap(ptr[yyp1], ptr[yyp2]);
+        ptr.swap(yyp1 as usize, yyp2 as usize);
+        yyp1 += 1;
+        yyp2 += 1;
+        yyn -= 1;
+    }
+}
+
+fn mnextswap(
+    nextLo: &mut [i32; 3],
+    nextHi: &mut [i32; 3],
+    nextD: &mut [i32; 3],
+    az: usize,
+    bz: usize,
+) {
+    nextLo.swap(az, bz);
+    nextHi.swap(az, bz);
+    nextD.swap(az, bz);
 }
