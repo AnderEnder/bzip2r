@@ -12679,6 +12679,20 @@ extern "C" {
 extern "C" {
     pub fn BZ2_bzDecompressEnd(strm: *mut bz_stream) -> ::std::os::raw::c_int;
 }
+
+extern "C" {
+    pub fn default_bzalloc(
+        opaque: *mut ::std::os::raw::c_void,
+        items: i32,
+        size: i32,
+    ) -> *mut ::std::os::raw::c_void;
+}
+
+// void default_bzfree(void *opaque, void *addr)
+extern "C" {
+    pub fn default_bzfree(opaque: *mut ::std::os::raw::c_void, addr: *mut ::std::os::raw::c_void);
+}
+
 pub type BZFILE = ::std::os::raw::c_void;
 extern "C" {
     pub fn BZ2_bzReadOpen(

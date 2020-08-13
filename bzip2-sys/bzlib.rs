@@ -1,11 +1,14 @@
 use std::ffi::CString;
 use std::mem::size_of;
+use std::os::raw::c_void;
 use std::process::exit;
 
 use crate::compress::BZ2_compressBlock;
 use crate::crctable::BZ2_crc32Table;
 use crate::private_ffi::{
-    bz_stream, EState, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_RUNNING, BZ_S_INPUT, BZ_S_OUTPUT,
+    bz_stream, default_bzalloc, default_bzfree, EState, BZ_CONFIG_ERROR, BZ_MEM_ERROR,
+    BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_S_INPUT,
+    BZ_S_OUTPUT,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -346,4 +349,99 @@ pub extern "C" fn BZ2_indexIntoF(indx: i32, cftab: *mut i32) -> i32 {
         }
     }
     nb
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzCompressInit(
+    strm: &mut bz_stream,
+    blockSize100k: i32,
+    verbosity: i32,
+    mut workFactor: i32,
+) -> i32 {
+    if bz_config_ok() == 0 {
+        return BZ_CONFIG_ERROR;
+    }
+
+    // check strm on null
+    if blockSize100k < 1 || blockSize100k > 9 || workFactor < 0 || workFactor > 250 {
+        return BZ_PARAM_ERROR;
+    }
+
+    if workFactor == 0 {
+        workFactor = 30;
+    }
+
+    if strm.bzalloc.is_none() {
+        strm.bzalloc = Some(default_bzalloc);
+    }
+    if strm.bzfree.is_none() {
+        strm.bzfree = Some(default_bzfree);
+    }
+
+    let s_ptr = BZALLOC(strm, size_of::<EState>() as i32);
+    if s_ptr.is_null() {
+        return BZ_MEM_ERROR;
+    }
+
+    let s = unsafe { (s_ptr as *mut EState).as_mut() }.unwrap();
+
+    s.strm = strm;
+
+    s.arr1 = std::ptr::null_mut();
+    s.arr2 = std::ptr::null_mut();
+    s.ftab = std::ptr::null_mut();
+
+    let n = 100000 * blockSize100k;
+    s.arr1 = BZALLOC(strm, n * size_of::<u32>() as i32) as *mut u32;
+    s.arr2 = BZALLOC(strm, (n + BZ_N_OVERSHOOT as i32) * size_of::<u32>() as i32) as *mut u32;
+    s.ftab = BZALLOC(strm, 65537 * size_of::<u32>() as i32) as *mut u32;
+
+    if s.arr1.is_null() || s.arr2.is_null() || s.ftab.is_null() {
+        if !s.arr1.is_null() {
+            BZFREE(strm, s.arr1 as *mut c_void);
+        }
+        if !s.arr2.is_null() {
+            BZFREE(strm, s.arr2 as *mut c_void);
+        }
+        if !s.ftab.is_null() {
+            BZFREE(strm, s.ftab as *mut c_void);
+        }
+        if !s_ptr.is_null() {
+            BZFREE(strm, s_ptr as *mut c_void);
+        }
+        return BZ_MEM_ERROR;
+    }
+
+    s.blockNo = 0;
+    s.state = BZ_S_INPUT as i32;
+    s.mode = BZ_M_RUNNING as i32;
+    s.combinedCRC = 0;
+    s.blockSize100k = blockSize100k;
+    s.nblockMAX = 100000 * blockSize100k - 19;
+    s.verbosity = verbosity;
+    s.workFactor = workFactor;
+
+    s.block = s.arr2 as *mut u8;
+    s.mtfv = s.arr1 as *mut u16;
+    s.zbits = std::ptr::null_mut();
+    s.ptr = s.arr1 as *mut u32;
+
+    strm.state = s_ptr;
+    strm.total_in_lo32 = 0;
+    strm.total_in_hi32 = 0;
+    strm.total_out_lo32 = 0;
+    strm.total_out_hi32 = 0;
+    init_RL(s);
+    prepare_new_block(s);
+    return BZ_OK as i32;
+}
+
+fn BZALLOC(strm: &mut bz_stream, nnn: i32) -> *mut c_void {
+    let bzalloc = strm.bzalloc.unwrap();
+    unsafe { bzalloc(strm.opaque, nnn, 1) }
+}
+
+fn BZFREE(strm: &mut bz_stream, ppp: *mut c_void) {
+    let bzfree = strm.bzfree.unwrap();
+    unsafe { bzfree(strm.opaque, ppp) }
 }
