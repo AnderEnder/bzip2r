@@ -8,6 +8,7 @@
 extern crate libc;
 
 pub(crate) mod blocksort;
+pub(crate) mod bzlib;
 pub(crate) mod compress;
 pub(crate) mod crctable;
 pub(crate) mod decompress;
@@ -16,6 +17,7 @@ pub(crate) mod private_ffi;
 pub(crate) mod randtable;
 
 pub use blocksort::*;
+pub use bzlib::*;
 pub use compress::*;
 pub use crctable::*;
 pub use decompress::*;

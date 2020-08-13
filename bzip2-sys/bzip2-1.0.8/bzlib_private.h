@@ -514,6 +514,7 @@ extern void
 BZ2_hbCreateDecodeTables(Int32 *, Int32 *, Int32 *, UChar *,
                          Int32, Int32, Int32);
 
+extern int bz_config_ok(void);
 #endif
 
 /*-- BZ_NO_STDIO seems to make NULL disappear on some platforms. --*/
