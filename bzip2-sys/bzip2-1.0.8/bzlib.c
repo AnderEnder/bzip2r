@@ -96,17 +96,17 @@
 // }
 
 /*---------------------------------------------------*/
-void *default_bzalloc(void *opaque, Int32 items, Int32 size)
-{
-   void *v = malloc(items * size);
-   return v;
-}
+// void *default_bzalloc(void *opaque, Int32 items, Int32 size)
+// {
+//    void *v = malloc(items * size);
+//    return v;
+// }
 
-void default_bzfree(void *opaque, void *addr)
-{
-   if (addr != NULL)
-      free(addr);
-}
+// void default_bzfree(void *opaque, void *addr)
+// {
+//    if (addr != NULL)
+//       free(addr);
+// }
 
 /*---------------------------------------------------*/
 // static void prepare_new_block(EState *s)

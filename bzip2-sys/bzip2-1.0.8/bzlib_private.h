@@ -514,6 +514,10 @@ extern void
 BZ2_hbCreateDecodeTables(Int32 *, Int32 *, Int32 *, UChar *,
                          Int32, Int32, Int32);
 
+extern void *default_bzalloc(void *opaque, Int32 items, Int32 size);
+
+extern void default_bzfree(void *opaque, void *addr);
+
 extern int bz_config_ok(void);
 #endif
 

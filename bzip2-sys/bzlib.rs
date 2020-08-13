@@ -6,9 +6,8 @@ use std::process::exit;
 use crate::compress::BZ2_compressBlock;
 use crate::crctable::BZ2_crc32Table;
 use crate::private_ffi::{
-    bz_stream, default_bzalloc, default_bzfree, EState, BZ_CONFIG_ERROR, BZ_MEM_ERROR,
-    BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_S_INPUT,
-    BZ_S_OUTPUT,
+    bz_stream, EState, BZ_CONFIG_ERROR, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_RUNNING,
+    BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_S_INPUT, BZ_S_OUTPUT,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -444,4 +443,16 @@ fn BZALLOC(strm: &mut bz_stream, nnn: i32) -> *mut c_void {
 fn BZFREE(strm: &mut bz_stream, ppp: *mut c_void) {
     let bzfree = strm.bzfree.unwrap();
     unsafe { bzfree(strm.opaque, ppp) }
+}
+
+#[no_mangle]
+pub extern "C" fn default_bzalloc(_opaque: *mut c_void, items: i32, size: i32) -> *mut c_void {
+    unsafe { libc::malloc((items * size) as usize) }
+}
+
+#[no_mangle]
+pub extern "C" fn default_bzfree(_opaque: *mut c_void, addr: *mut c_void) {
+    if !addr.is_null() {
+        unsafe { libc::free(addr) };
+    }
 }
