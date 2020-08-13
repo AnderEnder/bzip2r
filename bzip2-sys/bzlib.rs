@@ -2,8 +2,11 @@ use std::ffi::CString;
 use std::mem::size_of;
 use std::process::exit;
 
+use crate::compress::BZ2_compressBlock;
 use crate::crctable::BZ2_crc32Table;
-use crate::private_ffi::{EState, BZ_M_RUNNING};
+use crate::private_ffi::{
+    bz_stream, EState, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_RUNNING, BZ_S_INPUT, BZ_S_OUTPUT,
+};
 use std::slice::from_raw_parts_mut;
 
 const BZ_VERSION: &str = "1.0.8, 13-Jul-2019";
@@ -257,12 +260,12 @@ pub extern "C" fn copy_output_until_stop(s: &mut EState) -> u8 {
     let zbits = unsafe { from_raw_parts_mut(s.zbits, s.nblockMAX as usize) };
 
     loop {
-        /*-- no output space? --*/
+        // no output space?
         if strm.avail_out == 0 {
             break;
         }
 
-        /*-- block done? --*/
+        // block done?
         if s.state_out_pos >= s.numZ {
             break;
         }
@@ -284,4 +287,47 @@ pub extern "C" fn copy_output_until_stop(s: &mut EState) -> u8 {
     }
 
     return progress_out;
+}
+
+#[no_mangle]
+pub extern "C" fn handle_compress(strm: &mut bz_stream) -> u8 {
+    let mut progress_in = FALSE;
+    let mut progress_out = FALSE;
+    let s = unsafe { (strm.state as *mut EState).as_mut() }.unwrap();
+    loop {
+        if s.state == BZ_S_OUTPUT as i32 {
+            progress_out |= copy_output_until_stop(s);
+            if s.state_out_pos < s.numZ {
+                break;
+            }
+            if s.mode == BZ_M_FINISHING as i32 && s.avail_in_expect == 0 && isempty_RL(s) > 0 {
+                break;
+            }
+            prepare_new_block(s);
+            s.state = BZ_S_INPUT as i32;
+            if s.mode == BZ_M_FLUSHING as i32 && s.avail_in_expect == 0 && isempty_RL(s) > 0 {
+                break;
+            }
+        }
+
+        if s.state == BZ_S_INPUT as i32 {
+            progress_in |= copy_input_until_stop(s);
+            if s.mode != BZ_M_RUNNING as i32 && s.avail_in_expect == 0 {
+                flush_RL(s);
+                BZ2_compressBlock(s, (s.mode == BZ_M_FINISHING as i32) as u8);
+                s.state = BZ_S_OUTPUT as i32;
+            } else if s.nblock >= s.nblockMAX {
+                BZ2_compressBlock(s, FALSE);
+                s.state = BZ_S_OUTPUT as i32;
+            } else if unsafe { *s.strm }.avail_in == 0 {
+                break;
+            }
+        }
+    }
+
+    if progress_in > 0 || progress_out > 0 {
+        1
+    } else {
+        0
+    }
 }

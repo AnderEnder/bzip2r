@@ -379,55 +379,55 @@ int BZ_API(BZ2_bzCompressInit)(bz_stream *strm,
 // }
 
 /*---------------------------------------------------*/
-static Bool handle_compress(bz_stream *strm)
-{
-   Bool progress_in = False;
-   Bool progress_out = False;
-   EState *s = strm->state;
+// static Bool handle_compress(bz_stream *strm)
+// {
+//    Bool progress_in = False;
+//    Bool progress_out = False;
+//    EState *s = strm->state;
 
-   while (True)
-   {
+//    while (True)
+//    {
 
-      if (s->state == BZ_S_OUTPUT)
-      {
-         progress_out |= copy_output_until_stop(s);
-         if (s->state_out_pos < s->numZ)
-            break;
-         if (s->mode == BZ_M_FINISHING &&
-             s->avail_in_expect == 0 &&
-             isempty_RL(s))
-            break;
-         prepare_new_block(s);
-         s->state = BZ_S_INPUT;
-         if (s->mode == BZ_M_FLUSHING &&
-             s->avail_in_expect == 0 &&
-             isempty_RL(s))
-            break;
-      }
+//       if (s->state == BZ_S_OUTPUT)
+//       {
+//          progress_out |= copy_output_until_stop(s);
+//          if (s->state_out_pos < s->numZ)
+//             break;
+//          if (s->mode == BZ_M_FINISHING &&
+//              s->avail_in_expect == 0 &&
+//              isempty_RL(s))
+//             break;
+//          prepare_new_block(s);
+//          s->state = BZ_S_INPUT;
+//          if (s->mode == BZ_M_FLUSHING &&
+//              s->avail_in_expect == 0 &&
+//              isempty_RL(s))
+//             break;
+//       }
 
-      if (s->state == BZ_S_INPUT)
-      {
-         progress_in |= copy_input_until_stop(s);
-         if (s->mode != BZ_M_RUNNING && s->avail_in_expect == 0)
-         {
-            flush_RL(s);
-            BZ2_compressBlock(s, (Bool)(s->mode == BZ_M_FINISHING));
-            s->state = BZ_S_OUTPUT;
-         }
-         else if (s->nblock >= s->nblockMAX)
-         {
-            BZ2_compressBlock(s, False);
-            s->state = BZ_S_OUTPUT;
-         }
-         else if (s->strm->avail_in == 0)
-         {
-            break;
-         }
-      }
-   }
+//       if (s->state == BZ_S_INPUT)
+//       {
+//          progress_in |= copy_input_until_stop(s);
+//          if (s->mode != BZ_M_RUNNING && s->avail_in_expect == 0)
+//          {
+//             flush_RL(s);
+//             BZ2_compressBlock(s, (Bool)(s->mode == BZ_M_FINISHING));
+//             s->state = BZ_S_OUTPUT;
+//          }
+//          else if (s->nblock >= s->nblockMAX)
+//          {
+//             BZ2_compressBlock(s, False);
+//             s->state = BZ_S_OUTPUT;
+//          }
+//          else if (s->strm->avail_in == 0)
+//          {
+//             break;
+//          }
+//       }
+//    }
 
-   return progress_in || progress_out;
-}
+//    return progress_in || progress_out;
+// }
 
 /*---------------------------------------------------*/
 int BZ_API(BZ2_bzCompress)(bz_stream *strm, int action)
