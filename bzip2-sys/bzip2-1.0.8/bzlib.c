@@ -266,34 +266,34 @@ int BZ_API(BZ2_bzCompressInit)(bz_stream *strm,
 // }
 
 /*---------------------------------------------------*/
-#define ADD_CHAR_TO_BLOCK(zs, zchh0)          \
-   {                                          \
-      UInt32 zchh = (UInt32)(zchh0);          \
-      /*-- fast track the common case --*/    \
-      if (zchh != zs->state_in_ch &&          \
-          zs->state_in_len == 1)              \
-      {                                       \
-         UChar ch = (UChar)(zs->state_in_ch); \
-         BZ_UPDATE_CRC(zs->blockCRC, ch);     \
-         zs->inUse[zs->state_in_ch] = True;   \
-         zs->block[zs->nblock] = (UChar)ch;   \
-         zs->nblock++;                        \
-         zs->state_in_ch = zchh;              \
-      }                                       \
-      else /*-- general, uncommon cases --*/  \
-          if (zchh != zs->state_in_ch ||      \
-              zs->state_in_len == 255)        \
-      {                                       \
-         if (zs->state_in_ch < 256)           \
-            add_pair_to_block(zs);            \
-         zs->state_in_ch = zchh;              \
-         zs->state_in_len = 1;                \
-      }                                       \
-      else                                    \
-      {                                       \
-         zs->state_in_len++;                  \
-      }                                       \
-   }
+// #define ADD_CHAR_TO_BLOCK(zs, zchh0)          \
+//    {                                          \
+//       UInt32 zchh = (UInt32)(zchh0);          \
+//       /*-- fast track the common case --*/    \
+//       if (zchh != zs->state_in_ch &&          \
+//           zs->state_in_len == 1)              \
+//       {                                       \
+//          UChar ch = (UChar)(zs->state_in_ch); \
+//          BZ_UPDATE_CRC(zs->blockCRC, ch);     \
+//          zs->inUse[zs->state_in_ch] = True;   \
+//          zs->block[zs->nblock] = (UChar)ch;   \
+//          zs->nblock++;                        \
+//          zs->state_in_ch = zchh;              \
+//       }                                       \
+//       else /*-- general, uncommon cases --*/  \
+//           if (zchh != zs->state_in_ch ||      \
+//               zs->state_in_len == 255)        \
+//       {                                       \
+//          if (zs->state_in_ch < 256)           \
+//             add_pair_to_block(zs);            \
+//          zs->state_in_ch = zchh;              \
+//          zs->state_in_len = 1;                \
+//       }                                       \
+//       else                                    \
+//       {                                       \
+//          zs->state_in_len++;                  \
+//       }                                       \
+//    }
 
 /*---------------------------------------------------*/
 // static Bool copy_input_until_stop(EState *s)
@@ -785,21 +785,21 @@ static Bool unRLE_obuf_to_output_FAST(DState *s)
 }
 
 /*---------------------------------------------------*/
-__inline__ Int32 BZ2_indexIntoF(Int32 indx, Int32 *cftab)
-{
-   Int32 nb, na, mid;
-   nb = 0;
-   na = 256;
-   do
-   {
-      mid = (nb + na) >> 1;
-      if (indx >= cftab[mid])
-         nb = mid;
-      else
-         na = mid;
-   } while (na - nb != 1);
-   return nb;
-}
+// __inline__ Int32 BZ2_indexIntoF(Int32 indx, Int32 *cftab)
+// {
+//    Int32 nb, na, mid;
+//    nb = 0;
+//    na = 256;
+//    do
+//    {
+//       mid = (nb + na) >> 1;
+//       if (indx >= cftab[mid])
+//          nb = mid;
+//       else
+//          na = mid;
+//    } while (na - nb != 1);
+//    return nb;
+// }
 
 /*---------------------------------------------------*/
 /* Return  True iff data corruption is discovered.

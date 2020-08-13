@@ -331,3 +331,19 @@ pub extern "C" fn handle_compress(strm: &mut bz_stream) -> u8 {
         0
     }
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_indexIntoF(indx: i32, cftab: *mut i32) -> i32 {
+    let cftab = unsafe { from_raw_parts_mut(cftab, 256) };
+    let mut nb = 0;
+    let mut na = 256;
+    while na - nb != 1 {
+        let mid = (nb + na) >> 1;
+        if indx >= cftab[mid as usize] {
+            nb = mid;
+        } else {
+            na = mid;
+        }
+    }
+    nb
+}
