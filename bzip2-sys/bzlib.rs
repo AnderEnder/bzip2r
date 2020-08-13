@@ -6,8 +6,9 @@ use std::process::exit;
 use crate::compress::BZ2_compressBlock;
 use crate::crctable::BZ2_crc32Table;
 use crate::private_ffi::{
-    bz_stream, EState, BZ_CONFIG_ERROR, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_RUNNING,
-    BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_S_INPUT, BZ_S_OUTPUT,
+    bz_stream, EState, BZ_CONFIG_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK,
+    BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK,
+    BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -455,4 +456,89 @@ pub extern "C" fn default_bzfree(_opaque: *mut c_void, addr: *mut c_void) {
     if !addr.is_null() {
         unsafe { libc::free(addr) };
     }
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzCompress(strm: *mut bz_stream, action: i32) -> i32 {
+    //    Bool progress;
+    //    EState *s;
+    if strm.is_null() {
+        return BZ_PARAM_ERROR as i32;
+    }
+    let strm = unsafe { strm.as_mut() }.unwrap();
+    // let s = unsafe { (s_ptr as *mut EState).as_mut() }.unwrap();
+
+    let s_ptr = strm.state as *mut EState;
+    if s_ptr.is_null() {
+        return BZ_PARAM_ERROR as i32;
+    }
+
+    let s = unsafe { s_ptr.as_mut() }.unwrap();
+    let s_strm = unsafe { s.strm.as_mut() }.unwrap();
+
+    if s.strm != strm {
+        return BZ_PARAM_ERROR as i32;
+    }
+
+    loop {
+        match s.mode as u32 {
+            BZ_M_IDLE => return BZ_SEQUENCE_ERROR as i32,
+
+            BZ_M_RUNNING => {
+                if action == BZ_RUN as i32 {
+                    let progress = handle_compress(strm);
+                    if progress > 0 {
+                        return BZ_RUN_OK as i32;
+                    } else {
+                        return BZ_PARAM_ERROR as i32;
+                    };
+                } else if action == BZ_FLUSH as i32 {
+                    s.avail_in_expect = strm.avail_in;
+                    s.mode = BZ_M_FLUSHING as i32;
+                    continue;
+                } else if action == BZ_FINISH as i32 {
+                    s.avail_in_expect = strm.avail_in;
+                    s.mode = BZ_M_FINISHING as i32;
+                    continue;
+                } else {
+                    return BZ_PARAM_ERROR;
+                }
+            }
+
+            BZ_M_FLUSHING => {
+                if action != BZ_FLUSH as i32 {
+                    return BZ_SEQUENCE_ERROR;
+                }
+                if s.avail_in_expect != s_strm.avail_in as u32 {
+                    return BZ_SEQUENCE_ERROR;
+                }
+                let progress = handle_compress(strm);
+                if s.avail_in_expect > 0 || isempty_RL(s) == 0 || s.state_out_pos < s.numZ {
+                    return BZ_FLUSH_OK as i32;
+                }
+                s.mode = BZ_M_RUNNING as i32;
+                return BZ_RUN_OK as i32;
+            }
+
+            BZ_M_FINISHING => {
+                if action != BZ_FINISH as i32 {
+                    return BZ_SEQUENCE_ERROR;
+                }
+                if s.avail_in_expect != s_strm.avail_in {
+                    return BZ_SEQUENCE_ERROR;
+                }
+                let progress = handle_compress(strm);
+                if progress == 0 {
+                    return BZ_SEQUENCE_ERROR;
+                }
+                if s.avail_in_expect > 0 || isempty_RL(s) == 0 || s.state_out_pos < s.numZ {
+                    return BZ_FINISH_OK as i32;
+                }
+                s.mode = BZ_M_IDLE as i32;
+                return BZ_STREAM_END as i32;
+            }
+            _ => return BZ_OK as i32,
+        }
+    }
+    // return BZ_OK as i32; // not reached
 }
