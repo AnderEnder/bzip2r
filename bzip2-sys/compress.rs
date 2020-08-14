@@ -1,7 +1,7 @@
-use crate::huffman::BZ2_hbMakeCodeLengths;
+use crate::huffman::{bz2_hb_make_code_lengths, BZ2_hbMakeCodeLengths};
 use crate::private_ffi::{
-    sendMTFValues, BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z,
-    BZ_MAX_SELECTORS, BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
+    BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z, BZ_MAX_SELECTORS,
+    BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -223,10 +223,7 @@ const BZ_GREATER_ICOST: u8 = 15;
 const BZ_LESSER_ICOST: u8 = 0;
 
 #[no_mangle]
-pub extern "C" fn sendMTFValues2(s: &mut EState) {
-    //    Int32 v, t, i, j, gs, ge, totc, bt, bc, iter;
-    //    Int32 nSelectors, alphaSize, minLen, maxLen, selCtr;
-    //    Int32 nGroups, nBytes;
+pub extern "C" fn sendMTFValues(s: &mut EState) {
     let mut nSelectors = 0;
 
     /*--
@@ -259,7 +256,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
             s.len[t][v] = BZ_GREATER_ICOST;
         }
     }
-    /*--- Decide how many coding tables to use ---*/
+    // Decide how many coding tables to use
     asserth(s.nMTF > 0, 3001);
 
     let nGroups = match s.nMTF {
@@ -270,10 +267,8 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
         _ => 6,
     };
 
-    //*--- Generate an initial set of coding tables ---*/
+    // Generate an initial set of coding tables
     {
-        // Int32 nPart, remF, tFreq, aFreq;
-
         let mut nPart = nGroups;
         let mut remF = s.nMTF;
         let mut gs = 0_i32;
@@ -282,7 +277,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
             let tFreq = remF / nPart as i32;
             let mut ge = gs - 1;
             let mut aFreq = 0;
-            while aFreq < tFreq && (ge as i32) < (alphaSize - 1) {
+            while aFreq < tFreq && ge < (alphaSize - 1) {
                 ge += 1;
                 aFreq += s.mtfFreq[ge as usize];
             }
@@ -343,7 +338,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
         let mut totc = 0;
         let mut gs = 0;
         loop {
-            // Set group start & end marks. --*/
+            // Set group start & end marks.
             if gs >= s.nMTF {
                 break;
             }
@@ -361,9 +356,16 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
             }
 
             if nGroups == 6 && 50 == ge - gs + 1 {
-                //    register UInt32 cost01, cost23, cost45;
-                //    register UInt16 icv;
-                let (cost01, cost23, cost45) = BZ_ITER_50(s, mtfv, gs as usize);
+                let mut cost01 = 0;
+                let mut cost23 = 0;
+                let mut cost45 = 0;
+
+                for nn in 0..50 {
+                    let icv = mtfv[gs as usize + nn] as usize;
+                    cost01 += s.len_pack[icv][0] as u32;
+                    cost23 += s.len_pack[icv][1] as u32;
+                    cost45 += s.len_pack[icv][2] as u32;
+                }
                 cost[0] = cost01 as u16 & 0xffff;
                 cost[1] = (cost01 >> 16) as u16;
                 cost[2] = cost23 as u16 & 0xffff;
@@ -371,7 +373,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
                 cost[4] = cost45 as u16 & 0xffff;
                 cost[5] = (cost45 >> 16) as u16;
             } else {
-                // slow version which correctly handles all situations ---*/
+                // slow version which correctly handles all situations
                 for i in gs..ge + 1 {
                     let icv = mtfv[i as usize] as usize;
                     for t in 0..nGroups as usize {
@@ -400,8 +402,8 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
             if nGroups == 6 && 50 == ge - gs + 1 {
                 // fast track the common case ---*/
                 // BZ_ITUR_50(s, mtfv, bt as usize, gs as usize);
-                for nn in 0..50 {
-                    s.rfreq[bt as usize][mtfv[gs as usize + nn] as usize] += 1
+                for i in 0..50 {
+                    s.rfreq[bt as usize][mtfv[gs as usize + i] as usize] += 1
                 }
             } else {
                 // slow version which correctly handles all situations
@@ -429,9 +431,15 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
         // maxLen was changed from 20 to 17 in bzip2-1.0.3.  See
         // comment in huffman.c for details
         for t in 0..nGroups as usize {
-            BZ2_hbMakeCodeLengths(
-                &mut (s.len[t][0]),
-                &mut (s.rfreq[t][0]),
+            // BZ2_hbMakeCodeLengths(
+            //     s.len[t].as_mut_ptr(),
+            //     s.rfreq[t].as_mut_ptr(),
+            //     alphaSize,
+            //     17, // 20
+            // );
+            bz2_hb_make_code_lengths(
+                &mut s.len[t],
+                &mut s.rfreq[t],
                 alphaSize,
                 17, // 20
             );
@@ -444,26 +452,24 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
         3003,
     );
 
-    {
-        // UChar pos[BZ_N_GROUPS], ll_i, tmp2, tmp;
-        let mut pos = [0; BZ_N_GROUPS as usize];
-        for i in 0..nGroups as usize {
-            pos[i] = i;
-        }
+    // UChar pos[BZ_N_GROUPS], ll_i, tmp2, tmp;
+    let mut pos = [0; BZ_N_GROUPS as usize];
+    for i in 0..nGroups as usize {
+        pos[i] = i;
+    }
 
-        for i in 0..nSelectors as usize {
-            let ll_i = s.selector[i] as usize;
-            let mut j = 0;
-            let mut tmp = pos[j];
-            while ll_i != tmp {
-                j += 1;
-                let tmp2 = tmp;
-                tmp = pos[j];
-                pos[j] = tmp2;
-            }
-            pos[0] = tmp;
-            s.selectorMtf[i] = j as u8;
+    for i in 0..nSelectors as usize {
+        let ll_i = s.selector[i] as usize;
+        let mut j = 0;
+        let mut tmp = pos[j];
+        while ll_i != tmp {
+            j += 1;
+            let tmp2 = tmp;
+            tmp = pos[j];
+            pos[j] = tmp2;
         }
+        pos[0] = tmp;
+        s.selectorMtf[i] = j as u8;
     }
 }
 

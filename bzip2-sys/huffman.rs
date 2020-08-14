@@ -109,7 +109,7 @@ pub extern "C" fn BZ2_hbMakeCodeLengths(len: *mut u8, freq: *mut i32, alphaSize:
     bz2_hb_make_code_lengths(len, freq, alphaSize, maxLen);
 }
 
-fn bz2_hb_make_code_lengths(len: &mut [u8], freq: &mut [i32], alphaSize: i32, maxLen: i32) {
+pub fn bz2_hb_make_code_lengths(len: &mut [u8], freq: &mut [i32], alphaSize: i32, maxLen: i32) {
     let alpha = alphaSize as usize;
     let max = maxLen as usize;
     let mut heap = vec![0_i32; BZ_MAX_ALPHA_SIZE as usize + 2];
