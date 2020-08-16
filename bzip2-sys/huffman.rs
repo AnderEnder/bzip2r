@@ -202,7 +202,7 @@ pub unsafe extern "C" fn BZ2_hbAssignCodes(
     bz2_hb_assign_codes(code, length, minLen, maxLen);
 }
 
-fn bz2_hb_assign_codes(code: &mut [i32], length: &[u8], minLen: i32, maxLen: i32) {
+pub fn bz2_hb_assign_codes(code: &mut [i32], length: &[u8], minLen: i32, maxLen: i32) {
     let mut vec: i32 = 0;
     for n in minLen..(maxLen + 1) {
         for (length, code) in length.iter().zip(code.iter_mut()) {

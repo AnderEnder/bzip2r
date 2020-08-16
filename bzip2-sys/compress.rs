@@ -1,4 +1,5 @@
-use crate::huffman::{bz2_hb_make_code_lengths, BZ2_hbMakeCodeLengths};
+use crate::huffman::{bz2_hb_assign_codes, bz2_hb_make_code_lengths};
+// use crate::private_ffi::sendMTFValues;
 use crate::private_ffi::{
     BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z, BZ_MAX_SELECTORS,
     BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
@@ -78,21 +79,21 @@ pub fn asserth(_cond: bool, _msg: i32) {
 pub extern "C" fn generateMTFValues(s: &mut EState) {
     /*
        After sorting (eg, here),
-          s->arr1 [ 0 .. s->nblock-1 ] holds sorted order,
+          s.arr1 [ 0 .. s.nblock-1 ] holds sorted order,
           and
-          ((UChar*)s->arr2) [ 0 .. s->nblock-1 ]
+          ((UChar*)s.arr2) [ 0 .. s.nblock-1 ]
           holds the original block data.
 
        The first thing to do is generate the MTF values,
        and put them in
-          ((UInt16*)s->arr1) [ 0 .. s->nblock-1 ].
+          ((UInt16*)s.arr1) [ 0 .. s.nblock-1 ].
        Because there are strictly fewer or equal MTF values
        than block values, ptr values in this area are overwritten
        with MTF values only when they are no longer needed.
 
        The final compressed bitstream is generated into the
        area starting at
-          (UChar*) (&((UChar*)s->arr2)[s->nblock])
+          (UChar*) (&((UChar*)s.arr2)[s.nblock])
 
        These storage aliases are set up in bzCompressInit(),
        except for the last one, which is arranged in
@@ -190,7 +191,7 @@ pub extern "C" fn generateMTFValues(s: &mut EState) {
             }
             zPend = (zPend - 2) / 2;
         }
-        //zPend = 0;
+        zPend = 0;
     }
 
     mtfv[wr] = EOB as u16;
@@ -223,18 +224,66 @@ const BZ_GREATER_ICOST: u8 = 15;
 const BZ_LESSER_ICOST: u8 = 0;
 
 #[no_mangle]
+pub extern "C" fn generate_initial_coding_table(s: &mut EState, nGroups: usize) {
+    let mut nPart = nGroups;
+    let mut remF = s.nMTF;
+    let mut gs = 0_i32;
+    let alphaSize = s.nInUse + 2;
+
+    while nPart > 0 {
+        let tFreq = remF / nPart as i32;
+        let mut ge = gs - 1;
+        let mut aFreq = 0;
+
+        while aFreq < tFreq && ge < (alphaSize - 1) {
+            ge += 1;
+            aFreq += s.mtfFreq[ge as usize];
+        }
+
+        if ge > gs && nPart != nGroups && nPart != 1 && ((nGroups - nPart) % 2 == 1) {
+            aFreq -= s.mtfFreq[ge as usize];
+            ge -= 1;
+        }
+
+        if s.verbosity >= 3 {
+            println!(
+                "      initial group {}, [{} .. {}] has {} syms ({}%%)",
+                nPart,
+                gs,
+                ge,
+                aFreq,
+                (100.0 * aFreq as f64) / s.nMTF as f64
+            );
+        }
+
+        for v in 0..alphaSize {
+            if v >= gs && v <= ge {
+                s.len[(nPart - 1)][v as usize] = BZ_LESSER_ICOST;
+            } else {
+                s.len[(nPart - 1)][v as usize] = BZ_GREATER_ICOST;
+            }
+        }
+
+        nPart -= 1;
+        gs = ge + 1;
+        remF -= aFreq;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn block_data(s: &mut EState, nGroups: usize) {}
+
+#[no_mangle]
 pub extern "C" fn sendMTFValues(s: &mut EState) {
     let mut nSelectors = 0;
 
-    /*--
-    UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    is a global since the decoder also needs it.
+    // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // is a global since the decoder also needs it.
 
-    Int32  code[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    Int32  rfreq[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    are also globals only used in this proc.
-    Made global to keep stack frame size small.
-    --*/
+    // Int32  code[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // Int32  rfreq[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // are also globals only used in this proc.
+    // Made global to keep stack frame size small.
 
     let mut cost = [0_u16; BZ_N_GROUPS as usize];
     let mut fave = [0_i32; BZ_N_GROUPS as usize];
@@ -268,49 +317,7 @@ pub extern "C" fn sendMTFValues(s: &mut EState) {
     };
 
     // Generate an initial set of coding tables
-    {
-        let mut nPart = nGroups;
-        let mut remF = s.nMTF;
-        let mut gs = 0_i32;
-
-        while nPart > 0 {
-            let tFreq = remF / nPart as i32;
-            let mut ge = gs - 1;
-            let mut aFreq = 0;
-            while aFreq < tFreq && ge < (alphaSize - 1) {
-                ge += 1;
-                aFreq += s.mtfFreq[ge as usize];
-            }
-
-            if ge > gs && nPart != nGroups && nPart != 1 && ((nGroups - nPart) % 2 == 1) {
-                aFreq -= s.mtfFreq[ge as usize];
-                ge -= 1;
-            }
-
-            if s.verbosity >= 3 {
-                println!(
-                    "      initial group {}, [{} .. {}] has {} syms ({}%%)",
-                    nPart,
-                    gs,
-                    ge,
-                    aFreq,
-                    (100.0 * aFreq as f64) / s.nMTF as f64
-                );
-            }
-
-            for v in 0..alphaSize {
-                if v >= gs && v <= ge {
-                    s.len[(nPart - 1)][v as usize] = BZ_LESSER_ICOST;
-                } else {
-                    s.len[(nPart - 1)][v as usize] = BZ_GREATER_ICOST;
-                }
-            }
-
-            nPart -= 1;
-            gs = ge + 1;
-            remF -= aFreq;
-        }
-    }
+    generate_initial_coding_table(s, nGroups);
 
     // Iterate up to BZ_N_ITERS times to improve the tables.
     for iter in 0..BZ_N_ITERS as usize {
@@ -452,7 +459,7 @@ pub extern "C" fn sendMTFValues(s: &mut EState) {
         3003,
     );
 
-    // UChar pos[BZ_N_GROUPS], ll_i, tmp2, tmp;
+    // Compute MTF values for the selectors
     let mut pos = [0; BZ_N_GROUPS as usize];
     for i in 0..nGroups as usize {
         pos[i] = i;
@@ -470,6 +477,142 @@ pub extern "C" fn sendMTFValues(s: &mut EState) {
         }
         pos[0] = tmp;
         s.selectorMtf[i] = j as u8;
+    }
+
+    // Assign actual codes for the tables.
+    for t in 0..nGroups {
+        let mut minLen = 32;
+        let mut maxLen = 0;
+        for i in 0..alphaSize as usize {
+            if s.len[t][i] > maxLen {
+                maxLen = s.len[t][i];
+            }
+            if s.len[t][i] < minLen {
+                minLen = s.len[t][i];
+            }
+        }
+        asserth(!(maxLen > 17/*20*/), 3004);
+        asserth(!(minLen < 1), 3005);
+        bz2_hb_assign_codes(&mut s.code[t], &mut s.len[t], minLen as i32, maxLen as i32);
+    }
+
+    // Transmit the mapping table.
+    {
+        let mut inUse16 = [0; 16];
+        for i in 0..16 {
+            inUse16[i] = 0;
+            for j in 0..16 {
+                if s.inUse[i * 16 + j] > 0 {
+                    inUse16[i] = 1;
+                }
+            }
+        }
+
+        let nBytes = s.numZ;
+        for i in 0..16 {
+            if inUse16[i] > 0 {
+                bsW(s, 1, 1);
+            } else {
+                bsW(s, 1, 0);
+            }
+        }
+
+        for i in 0..16 {
+            if inUse16[i] > 0 {
+                for j in 0..16 {
+                    if s.inUse[i * 16 + j] > 0 {
+                        bsW(s, 1, 1);
+                    } else {
+                        bsW(s, 1, 0);
+                    }
+                }
+            }
+        }
+
+        if s.verbosity >= 3 {
+            print!("      bytes: mapping {}, ", s.numZ - nBytes);
+        }
+    }
+
+    // Now the selectors.
+    let nBytes = s.numZ;
+    bsW(s, 3, nGroups as u32);
+    bsW(s, 15, nSelectors as u32);
+    for i in 0..nSelectors {
+        for j in 0..s.selectorMtf[i] {
+            bsW(s, 1, 1);
+        }
+        bsW(s, 1, 0);
+    }
+    if s.verbosity >= 3 {
+        print!("selectors {}, ", s.numZ - nBytes);
+    }
+
+    // Now the coding tables.
+    let nBytes = s.numZ;
+
+    for t in 0..nGroups {
+        let mut curr = s.len[t][0] as u32;
+        bsW(s, 5, curr);
+        for i in 0..alphaSize as usize {
+            while curr < s.len[t][i] as u32 {
+                bsW(s, 2, 2);
+                curr += 1; // 10
+            }
+            while curr > s.len[t][i] as u32 {
+                bsW(s, 2, 3);
+                curr -= 1; // 11
+            }
+            bsW(s, 1, 0);
+        }
+    }
+
+    if s.verbosity >= 3 {
+        print!("code lengths %{}, ", s.numZ - nBytes);
+    }
+
+    // And finally, the block data proper
+    let nBytes = s.numZ;
+    let mut selCtr = 0;
+    let mut gs = 0;
+    loop {
+        if gs >= s.nMTF {
+            break;
+        }
+        let mut ge = gs + BZ_G_SIZE as i32 - 1;
+        if ge >= s.nMTF {
+            ge = s.nMTF - 1;
+        }
+        asserth((s.selector[selCtr] as usize) < nGroups, 3006);
+
+        if nGroups == 6 && 50 == ge - gs + 1 {
+            // fast track the common case
+            for nn in 0..50 {
+                let mtfv_i = mtfv[(gs + nn) as usize] as usize;
+                bsW(
+                    s,
+                    s.len[s.selector[selCtr as usize] as usize][mtfv_i] as i32,
+                    s.code[s.selector[selCtr as usize] as usize][mtfv_i] as u32,
+                );
+            }
+        } else {
+            // slow version which correctly handles all situations
+            for i in gs..ge + 1 {
+                bsW(
+                    s,
+                    s.len[s.selector[selCtr as usize] as usize][mtfv[i as usize] as usize] as i32,
+                    s.code[s.selector[selCtr as usize] as usize][mtfv[i as usize] as usize] as u32,
+                );
+            }
+        }
+
+        gs = ge + 1;
+        selCtr += 1;
+    }
+    asserth(selCtr == nSelectors, 3007);
+
+    if s.verbosity >= 3 {
+        println!("codes {}", s.numZ - nBytes);
     }
 }
 

@@ -26,7 +26,7 @@
 */
 
 #include "bzlib_private.h"
-
+#include <stdlib.h>
 /*---------------------------------------------------*/
 /*--- Bit stream I/O                              ---*/
 /*---------------------------------------------------*/
@@ -293,46 +293,48 @@ void sendMTFValues2(EState *s)
       nGroups = 6;
 
    /*--- Generate an initial set of coding tables ---*/
-   {
-      Int32 nPart, remF, tFreq, aFreq;
+   // {
+   //    Int32 nPart, remF, tFreq, aFreq;
 
-      nPart = nGroups;
-      remF = s->nMTF;
-      gs = 0;
-      while (nPart > 0)
-      {
-         tFreq = remF / nPart;
-         ge = gs - 1;
-         aFreq = 0;
-         while (aFreq < tFreq && ge < alphaSize - 1)
-         {
-            ge++;
-            aFreq += s->mtfFreq[ge];
-         }
+   //    nPart = nGroups;
+   //    remF = s->nMTF;
+   //    gs = 0;
+   //    while (nPart > 0)
+   //    {
+   //       tFreq = remF / nPart;
+   //       ge = gs - 1;
+   //       aFreq = 0;
+   //       while (aFreq < tFreq && ge < alphaSize - 1)
+   //       {
+   //          ge++;
+   //          aFreq += s->mtfFreq[ge];
+   //       }
 
-         if (ge > gs && nPart != nGroups && nPart != 1 && ((nGroups - nPart) % 2 == 1))
-         {
-            aFreq -= s->mtfFreq[ge];
-            ge--;
-         }
+   //       if (ge > gs && nPart != nGroups && nPart != 1 && ((nGroups - nPart) % 2 == 1))
+   //       {
+   //          aFreq -= s->mtfFreq[ge];
+   //          ge--;
+   //       }
 
-         if (s->verbosity >= 3)
-            VPrintf5("      initial group %d, [%d .. %d], "
-                     "has %d syms (%4.1f%%)\n",
-                     nPart, gs, ge, aFreq,
-                     (100.0 * (float)aFreq) / (float)(s->nMTF));
+   //       if (s->verbosity >= 3)
+   //          VPrintf5("      initial group %d, [%d .. %d], "
+   //                   "has %d syms (%4.1f%%)\n",
+   //                   nPart, gs, ge, aFreq,
+   //                   (100.0 * (float)aFreq) / (float)(s->nMTF));
 
-         for (v = 0; v < alphaSize; v++)
-            if (v >= gs && v <= ge)
-               s->len[nPart - 1][v] = BZ_LESSER_ICOST;
-            else
-               s->len[nPart - 1][v] = BZ_GREATER_ICOST;
+   //       for (v = 0; v < alphaSize; v++)
+   //          if (v >= gs && v <= ge)
+   //             s->len[nPart - 1][v] = BZ_LESSER_ICOST;
+   //          else
+   //             s->len[nPart - 1][v] = BZ_GREATER_ICOST;
 
-         nPart--;
-         gs = ge + 1;
-         remF -= aFreq;
-      }
-   }
+   //       nPart--;
+   //       gs = ge + 1;
+   //       remF -= aFreq;
+   //    }
+   // }
+
+   generate_initial_coding_table(s, nGroups);
 
    // Iterate up to BZ_N_ITERS times to improve the tables.
    for (iter = 0; iter < BZ_N_ITERS; iter++)

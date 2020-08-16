@@ -64,10 +64,10 @@
    }
 
 /*---------------------------------------------------*/
-void BZ2_hbMakeCodeLengths(UChar *len,
-                           Int32 *freq,
-                           Int32 alphaSize,
-                           Int32 maxLen)
+void BZ2_hbMakeCodeLengths2(UChar *len,
+                            Int32 *freq,
+                            Int32 alphaSize,
+                            Int32 maxLen)
 {
    /*--
       Nodes and heap entries run from 1.  Entry 0
