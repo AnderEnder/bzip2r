@@ -248,7 +248,7 @@
 #define BZ_LESSER_ICOST 0
 #define BZ_GREATER_ICOST 15
 
-void sendMTFValues(EState *s)
+void sendMTFValues2(EState *s)
 {
    Int32 v, t, i, j, gs, ge, totc, bt, bc, iter;
    Int32 nSelectors, alphaSize, minLen, maxLen, selCtr;

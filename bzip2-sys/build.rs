@@ -31,7 +31,7 @@ fn main() {
         //.file("bzip2-1.0.8/huffman.c")
         // .file("bzip2-1.0.8/crctable.c")
         // .file("bzip2-1.0.8/randtable.c")
-        .file("bzip2-1.0.8/compress.c")
+        // .file("bzip2-1.0.8/compress.c")
         .file("bzip2-1.0.8/decompress.c")
         .file("bzip2-1.0.8/bzlib.c")
         .out_dir(dst.join("lib"))

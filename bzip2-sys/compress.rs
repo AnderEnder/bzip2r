@@ -1,5 +1,5 @@
 use crate::huffman::{bz2_hb_assign_codes, bz2_hb_make_code_lengths};
-use crate::private_ffi::sendMTFValues;
+// use crate::private_ffi::sendMTFValues;
 use crate::private_ffi::{
     BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z, BZ_MAX_SELECTORS,
     BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
@@ -191,7 +191,7 @@ pub extern "C" fn generateMTFValues(s: &mut EState) {
             }
             zPend = (zPend - 2) / 2;
         }
-        zPend = 0;
+        // zPend = 0;
     }
 
     mtfv[wr] = EOB as u16;
@@ -472,7 +472,7 @@ pub extern "C" fn assign_actual_code(s: &mut EState, nGroups: i32, alphaSize: i3
 }
 
 #[no_mangle]
-pub extern "C" fn sendMTFValues2(s: &mut EState) {
+pub extern "C" fn sendMTFValues(s: &mut EState) {
     // let mut nSelectors = 0;
 
     // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
@@ -575,7 +575,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
     bsW(s, 3, nGroups as u32);
     bsW(s, 15, nSelectors as u32);
     for i in 0..nSelectors {
-        for j in 0..s.selectorMtf[i] {
+        for _j in 0..s.selectorMtf[i] {
             bsW(s, 1, 1);
         }
         bsW(s, 1, 0);
@@ -716,9 +716,7 @@ pub extern "C" fn BZ2_compressBlock(s: &mut EState, is_last_block: u8) {
 
         bsW(s, 24, s.origPtr as u32);
         generateMTFValues(s);
-        unsafe {
-            sendMTFValues(s);
-        }
+        sendMTFValues(s);
     }
 
     //*-- If this is the last block, add the stream trailer. --*/

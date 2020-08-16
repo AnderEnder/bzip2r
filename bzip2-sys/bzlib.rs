@@ -512,7 +512,7 @@ pub extern "C" fn BZ2_bzCompress(strm: *mut bz_stream, action: i32) -> i32 {
                 if s.avail_in_expect != s_strm.avail_in as u32 {
                     return BZ_SEQUENCE_ERROR;
                 }
-                let progress = handle_compress(strm);
+                let _progress = handle_compress(strm);
                 if s.avail_in_expect > 0 || isempty_RL(s) == 0 || s.state_out_pos < s.numZ {
                     return BZ_FLUSH_OK as i32;
                 }
