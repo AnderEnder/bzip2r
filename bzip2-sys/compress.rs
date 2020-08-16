@@ -447,8 +447,33 @@ pub extern "C" fn compute_mtf_values(s: &mut EState, nGroups: usize, nSelectors:
 }
 
 #[no_mangle]
+pub extern "C" fn assign_actual_code(s: &mut EState, nGroups: i32, alphaSize: i32) {
+    for t in 0..nGroups as usize {
+        let mut minLen = 32;
+        let mut maxLen = 0;
+        for i in 0..alphaSize as usize {
+            if s.len[t][i] > maxLen {
+                maxLen = s.len[t][i];
+            }
+            if s.len[t][i] < minLen {
+                minLen = s.len[t][i];
+            }
+        }
+        asserth(!(maxLen > 17), 3004); // 20
+        asserth(!(minLen < 1), 3005);
+        bz2_hb_assign_codes(
+            &mut s.code[t],
+            &mut s.len[t],
+            minLen as i32,
+            maxLen as i32,
+            alphaSize as usize,
+        );
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn sendMTFValues2(s: &mut EState) {
-    let mut nSelectors = 0;
+    // let mut nSelectors = 0;
 
     // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
     // is a global since the decoder also needs it.
@@ -493,7 +518,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
     generate_initial_coding_table(s, nGroups);
 
     // Iterate up to BZ_N_ITERS times to improve the tables.
-    nSelectors = block_data(s, &mut fave, &mut cost, nGroups, alphaSize);
+    let nSelectors = block_data(s, &mut fave, &mut cost, nGroups, alphaSize);
 
     asserth(nGroups < 8, 3002);
     asserth(
@@ -505,21 +530,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
     compute_mtf_values(s, nGroups, nSelectors);
 
     // Assign actual codes for the tables.
-    for t in 0..nGroups {
-        let mut minLen = 32;
-        let mut maxLen = 0;
-        for i in 0..alphaSize as usize {
-            if s.len[t][i] > maxLen {
-                maxLen = s.len[t][i];
-            }
-            if s.len[t][i] < minLen {
-                minLen = s.len[t][i];
-            }
-        }
-        asserth(!(maxLen > 17/*20*/), 3004);
-        asserth(!(minLen < 1), 3005);
-        bz2_hb_assign_codes(&mut s.code[t], &mut s.len[t], minLen as i32, maxLen as i32);
-    }
+    assign_actual_code(s, nGroups as i32, alphaSize);
 
     // Transmit the mapping table.
     {

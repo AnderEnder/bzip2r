@@ -602,22 +602,23 @@ void sendMTFValues(EState *s)
    compute_mtf_values(s, nGroups, nSelectors);
 
    /*--- Assign actual codes for the tables. --*/
-   for (t = 0; t < nGroups; t++)
-   {
-      minLen = 32;
-      maxLen = 0;
-      for (i = 0; i < alphaSize; i++)
-      {
-         if (s->len[t][i] > maxLen)
-            maxLen = s->len[t][i];
-         if (s->len[t][i] < minLen)
-            minLen = s->len[t][i];
-      }
-      AssertH(!(maxLen > 17 /*20*/), 3004);
-      AssertH(!(minLen < 1), 3005);
-      BZ2_hbAssignCodes(&(s->code[t][0]), &(s->len[t][0]),
-                        minLen, maxLen, alphaSize);
-   }
+   // for (t = 0; t < nGroups; t++)
+   // {
+   //    minLen = 32;
+   //    maxLen = 0;
+   //    for (i = 0; i < alphaSize; i++)
+   //    {
+   //       if (s->len[t][i] > maxLen)
+   //          maxLen = s->len[t][i];
+   //       if (s->len[t][i] < minLen)
+   //          minLen = s->len[t][i];
+   //    }
+   //    AssertH(!(maxLen > 17 /*20*/), 3004);
+   //    AssertH(!(minLen < 1), 3005);
+   //    BZ2_hbAssignCodes(&(s->code[t][0]), &(s->len[t][0]),
+   //                      minLen, maxLen, alphaSize);
+   // }
+   assign_actual_code(s, nGroups, alphaSize);
 
    /*--- Transmit the mapping table. ---*/
    {

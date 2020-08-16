@@ -199,13 +199,23 @@ pub unsafe extern "C" fn BZ2_hbAssignCodes(
 ) {
     let code = from_raw_parts_mut(code, alphaSize as usize);
     let length = from_raw_parts(length, alphaSize as usize);
-    bz2_hb_assign_codes(code, length, minLen, maxLen);
+    bz2_hb_assign_codes(code, length, minLen, maxLen, alphaSize as usize);
 }
 
-pub fn bz2_hb_assign_codes(code: &mut [i32], length: &[u8], minLen: i32, maxLen: i32) {
+pub fn bz2_hb_assign_codes(
+    code: &mut [i32],
+    length: &[u8],
+    minLen: i32,
+    maxLen: i32,
+    alphaSize: usize,
+) {
     let mut vec: i32 = 0;
     for n in minLen..(maxLen + 1) {
-        for (length, code) in length.iter().zip(code.iter_mut()) {
+        for (length, code) in length
+            .iter()
+            .take(alphaSize)
+            .zip(code.iter_mut().take(alphaSize))
+        {
             if *length as i32 == n {
                 *code = vec;
                 vec += 1;
