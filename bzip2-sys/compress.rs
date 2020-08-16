@@ -425,6 +425,28 @@ pub fn block_data(
 }
 
 #[no_mangle]
+pub extern "C" fn compute_mtf_values(s: &mut EState, nGroups: usize, nSelectors: usize) {
+    let mut pos = [0; BZ_N_GROUPS as usize];
+    for i in 0..nGroups as usize {
+        pos[i] = i;
+    }
+
+    for i in 0..nSelectors as usize {
+        let ll_i = s.selector[i] as usize;
+        let mut j = 0;
+        let mut tmp = pos[j];
+        while ll_i != tmp {
+            j += 1;
+            let tmp2 = tmp;
+            tmp = pos[j];
+            pos[j] = tmp2;
+        }
+        pos[0] = tmp;
+        s.selectorMtf[i] = j as u8;
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn sendMTFValues2(s: &mut EState) {
     let mut nSelectors = 0;
 
@@ -480,24 +502,7 @@ pub extern "C" fn sendMTFValues2(s: &mut EState) {
     );
 
     // Compute MTF values for the selectors
-    let mut pos = [0; BZ_N_GROUPS as usize];
-    for i in 0..nGroups as usize {
-        pos[i] = i;
-    }
-
-    for i in 0..nSelectors as usize {
-        let ll_i = s.selector[i] as usize;
-        let mut j = 0;
-        let mut tmp = pos[j];
-        while ll_i != tmp {
-            j += 1;
-            let tmp2 = tmp;
-            tmp = pos[j];
-            pos[j] = tmp2;
-        }
-        pos[0] = tmp;
-        s.selectorMtf[i] = j as u8;
-    }
+    compute_mtf_values(s, nGroups, nSelectors);
 
     // Assign actual codes for the tables.
     for t in 0..nGroups {

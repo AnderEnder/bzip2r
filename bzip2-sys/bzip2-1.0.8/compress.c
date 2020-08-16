@@ -572,32 +572,34 @@ void sendMTFValues(EState *s)
    //                                alphaSize, 17 /*20*/);
    //    }
    nSelectors = blockData(s, &fave, &cost, nGroups, alphaSize);
+
    AssertH(nGroups < 8, 3002);
    AssertH(nSelectors < 32768 &&
                nSelectors <= BZ_MAX_SELECTORS,
            3003);
 
    /*--- Compute MTF values for the selectors. ---*/
-   {
-      UChar pos[BZ_N_GROUPS], ll_i, tmp2, tmp;
-      for (i = 0; i < nGroups; i++)
-         pos[i] = i;
-      for (i = 0; i < nSelectors; i++)
-      {
-         ll_i = s->selector[i];
-         j = 0;
-         tmp = pos[j];
-         while (ll_i != tmp)
-         {
-            j++;
-            tmp2 = tmp;
-            tmp = pos[j];
-            pos[j] = tmp2;
-         };
-         pos[0] = tmp;
-         s->selectorMtf[i] = j;
-      }
-   };
+   // {
+   //    UChar pos[BZ_N_GROUPS], ll_i, tmp2, tmp;
+   //    for (i = 0; i < nGroups; i++)
+   //       pos[i] = i;
+   //    for (i = 0; i < nSelectors; i++)
+   //    {
+   //       ll_i = s->selector[i];
+   //       j = 0;
+   //       tmp = pos[j];
+   //       while (ll_i != tmp)
+   //       {
+   //          j++;
+   //          tmp2 = tmp;
+   //          tmp = pos[j];
+   //          pos[j] = tmp2;
+   //       };
+   //       pos[0] = tmp;
+   //       s->selectorMtf[i] = j;
+   //    }
+   // };
+   compute_mtf_values(s, nGroups, nSelectors);
 
    /*--- Assign actual codes for the tables. --*/
    for (t = 0; t < nGroups; t++)
