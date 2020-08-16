@@ -1,5 +1,5 @@
 use crate::huffman::{bz2_hb_assign_codes, bz2_hb_make_code_lengths};
-// use crate::private_ffi::sendMTFValues;
+use crate::private_ffi::sendMTFValues;
 use crate::private_ffi::{
     BZ2_blockSort, BZ_HDR_h, EState, BZ_G_SIZE, BZ_HDR_0, BZ_HDR_B, BZ_HDR_Z, BZ_MAX_SELECTORS,
     BZ_N_GROUPS, BZ_N_ITERS, BZ_RUNA, BZ_RUNB,
@@ -271,55 +271,30 @@ pub extern "C" fn generate_initial_coding_table(s: &mut EState, nGroups: usize) 
 }
 
 #[no_mangle]
-pub extern "C" fn block_data(s: &mut EState, nGroups: usize) {}
+pub extern "C" fn blockData(
+    s: &mut EState,
+    fave: *mut i32,
+    cost: *mut u16,
+    nGroups: usize,
+    alphaSize: i32,
+) -> i32 {
+    let fave = unsafe { from_raw_parts_mut(fave, BZ_N_GROUPS as usize) };
+    let cost = unsafe { from_raw_parts_mut(cost, BZ_N_GROUPS as usize) };
 
-#[no_mangle]
-pub extern "C" fn sendMTFValues(s: &mut EState) {
+    block_data(s, fave, cost, nGroups, alphaSize) as i32
+}
+
+pub fn block_data(
+    s: &mut EState,
+    fave: &mut [i32],
+    cost: &mut [u16],
+    nGroups: usize,
+    alphaSize: i32,
+) -> usize {
+    let mtfv = unsafe { from_raw_parts_mut(s.mtfv, (s.nblockMAX + 2) as usize) };
+    // Iterate up to BZ_N_ITERS times to improve the tables.
     let mut nSelectors = 0;
 
-    // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    // is a global since the decoder also needs it.
-
-    // Int32  code[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    // Int32  rfreq[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
-    // are also globals only used in this proc.
-    // Made global to keep stack frame size small.
-
-    let mut cost = [0_u16; BZ_N_GROUPS as usize];
-    let mut fave = [0_i32; BZ_N_GROUPS as usize];
-    // let mut gs = 0;
-    // let mut ge: i32 = 0;
-
-    let mtfv = unsafe { from_raw_parts_mut(s.mtfv, (s.nblockMAX + 2) as usize) };
-
-    if s.verbosity >= 3 {
-        println!(
-            "      {} in block, {} after MTF & 1-2 coding,
-%{}+2 syms in use",
-            s.nblock, s.nMTF, s.nInUse
-        );
-    }
-    let alphaSize = s.nInUse + 2;
-    for t in 0..BZ_N_GROUPS as usize {
-        for v in 0..alphaSize as usize {
-            s.len[t][v] = BZ_GREATER_ICOST;
-        }
-    }
-    // Decide how many coding tables to use
-    asserth(s.nMTF > 0, 3001);
-
-    let nGroups = match s.nMTF {
-        m if m < 200 => 2,
-        m if m < 600 => 3,
-        m if m < 1200 => 4,
-        m if m < 2400 => 5,
-        _ => 6,
-    };
-
-    // Generate an initial set of coding tables
-    generate_initial_coding_table(s, nGroups);
-
-    // Iterate up to BZ_N_ITERS times to improve the tables.
     for iter in 0..BZ_N_ITERS as usize {
         for t in 0..nGroups as usize {
             fave[t] = 0;
@@ -438,12 +413,6 @@ pub extern "C" fn sendMTFValues(s: &mut EState) {
         // maxLen was changed from 20 to 17 in bzip2-1.0.3.  See
         // comment in huffman.c for details
         for t in 0..nGroups as usize {
-            // BZ2_hbMakeCodeLengths(
-            //     s.len[t].as_mut_ptr(),
-            //     s.rfreq[t].as_mut_ptr(),
-            //     alphaSize,
-            //     17, // 20
-            // );
             bz2_hb_make_code_lengths(
                 &mut s.len[t],
                 &mut s.rfreq[t],
@@ -452,6 +421,57 @@ pub extern "C" fn sendMTFValues(s: &mut EState) {
             );
         }
     }
+    nSelectors
+}
+
+#[no_mangle]
+pub extern "C" fn sendMTFValues2(s: &mut EState) {
+    let mut nSelectors = 0;
+
+    // UChar  len [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // is a global since the decoder also needs it.
+
+    // Int32  code[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // Int32  rfreq[BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+    // are also globals only used in this proc.
+    // Made global to keep stack frame size small.
+
+    let mut cost = [0_u16; BZ_N_GROUPS as usize];
+    let mut fave = [0_i32; BZ_N_GROUPS as usize];
+    // let mut gs = 0;
+    // let mut ge: i32 = 0;
+
+    let mtfv = unsafe { from_raw_parts_mut(s.mtfv, (s.nblockMAX + 2) as usize) };
+
+    if s.verbosity >= 3 {
+        println!(
+            "      {} in block, {} after MTF & 1-2 coding,
+%{}+2 syms in use",
+            s.nblock, s.nMTF, s.nInUse
+        );
+    }
+    let alphaSize = s.nInUse + 2;
+    for t in 0..BZ_N_GROUPS as usize {
+        for v in 0..alphaSize as usize {
+            s.len[t][v] = BZ_GREATER_ICOST;
+        }
+    }
+    // Decide how many coding tables to use
+    asserth(s.nMTF > 0, 3001);
+
+    let nGroups = match s.nMTF {
+        m if m < 200 => 2,
+        m if m < 600 => 3,
+        m if m < 1200 => 4,
+        m if m < 2400 => 5,
+        _ => 6,
+    };
+
+    // Generate an initial set of coding tables
+    generate_initial_coding_table(s, nGroups);
+
+    // Iterate up to BZ_N_ITERS times to improve the tables.
+    nSelectors = block_data(s, &mut fave, &mut cost, nGroups, alphaSize);
 
     asserth(nGroups < 8, 3002);
     asserth(
