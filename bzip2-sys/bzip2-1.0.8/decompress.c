@@ -339,24 +339,26 @@ Int32 BZ2_decompress(DState *s)
          nSelectors = BZ_MAX_SELECTORS;
 
       /*--- Undo the MTF values for the selectors. ---*/
-      {
-         UChar pos[BZ_N_GROUPS], tmp, v;
-         for (v = 0; v < nGroups; v++)
-            pos[v] = v;
+      // {
+      //    UChar pos[BZ_N_GROUPS], tmp, v;
+      //    for (v = 0; v < nGroups; v++)
+      //       pos[v] = v;
 
-         for (i = 0; i < nSelectors; i++)
-         {
-            v = s->selectorMtf[i];
-            tmp = pos[v];
-            while (v > 0)
-            {
-               pos[v] = pos[v - 1];
-               v--;
-            }
-            pos[0] = tmp;
-            s->selector[i] = tmp;
-         }
-      }
+      //    for (i = 0; i < nSelectors; i++)
+      //    {
+      //       v = s->selectorMtf[i];
+      //       tmp = pos[v];
+      //       while (v > 0)
+      //       {
+      //          pos[v] = pos[v - 1];
+      //          v--;
+      //       }
+      //       pos[0] = tmp;
+      //       s->selector[i] = tmp;
+      //    }
+      // }
+
+      dc_undo_mtf_selector_values(s, nGroups, nSelectors);
 
       /*--- Now the coding tables ---*/
       for (t = 0; t < nGroups; t++)
@@ -382,25 +384,26 @@ Int32 BZ2_decompress(DState *s)
       }
 
       /*--- Create the Huffman decoding tables ---*/
-      for (t = 0; t < nGroups; t++)
-      {
-         minLen = 32;
-         maxLen = 0;
-         for (i = 0; i < alphaSize; i++)
-         {
-            if (s->len[t][i] > maxLen)
-               maxLen = s->len[t][i];
-            if (s->len[t][i] < minLen)
-               minLen = s->len[t][i];
-         }
-         BZ2_hbCreateDecodeTables(
-             &(s->limit[t][0]),
-             &(s->base[t][0]),
-             &(s->perm[t][0]),
-             &(s->len[t][0]),
-             minLen, maxLen, alphaSize);
-         s->minLens[t] = minLen;
-      }
+      // for (t = 0; t < nGroups; t++)
+      // {
+      //    minLen = 32;
+      //    maxLen = 0;
+      //    for (i = 0; i < alphaSize; i++)
+      //    {
+      //       if (s->len[t][i] > maxLen)
+      //          maxLen = s->len[t][i];
+      //       if (s->len[t][i] < minLen)
+      //          minLen = s->len[t][i];
+      //    }
+      //    BZ2_hbCreateDecodeTables(
+      //        &(s->limit[t][0]),
+      //        &(s->base[t][0]),
+      //        &(s->perm[t][0]),
+      //        &(s->len[t][0]),
+      //        minLen, maxLen, alphaSize);
+      //    s.minLens[t] = minLen;
+      // }
+      dc_create_decoding_tables(s, nGroups, alphaSize);
 
       /*--- Now the MTF values ---*/
 
@@ -413,19 +416,20 @@ Int32 BZ2_decompress(DState *s)
          s->unzftab[i] = 0;
 
       /*-- MTF init --*/
-      {
-         Int32 ii, jj, kk;
-         kk = MTFA_SIZE - 1;
-         for (ii = 256 / MTFL_SIZE - 1; ii >= 0; ii--)
-         {
-            for (jj = MTFL_SIZE - 1; jj >= 0; jj--)
-            {
-               s->mtfa[kk] = (UChar)(ii * MTFL_SIZE + jj);
-               kk--;
-            }
-            s->mtfbase[ii] = kk + 1;
-         }
-      }
+      // {
+      //    Int32 ii, jj, kk;
+      //    kk = MTFA_SIZE - 1;
+      //    for (ii = 256 / MTFL_SIZE - 1; ii >= 0; ii--)
+      //    {
+      //       for (jj = MTFL_SIZE - 1; jj >= 0; jj--)
+      //       {
+      //          s->mtfa[kk] = (UChar)(ii * MTFL_SIZE + jj);
+      //          kk--;
+      //       }
+      //       s->mtfbase[ii] = kk + 1;
+      //    }
+      // }
+      dc_mtf_init(s);
       /*-- end MTF init --*/
 
       nblock = 0;
@@ -492,68 +496,69 @@ Int32 BZ2_decompress(DState *s)
                RETURN(BZ_DATA_ERROR);
 
             /*-- uc = MTF ( nextSym-1 ) --*/
-            {
-               Int32 ii, jj, kk, pp, lno, off;
-               UInt32 nn;
-               nn = (UInt32)(nextSym - 1);
+            // {
+            //    Int32 ii, jj, kk, pp, lno, off;
+            //    UInt32 nn;
+            //    nn = (UInt32)(nextSym - 1);
 
-               if (nn < MTFL_SIZE)
-               {
-                  /* avoid general-case expense */
-                  pp = s->mtfbase[0];
-                  uc = s->mtfa[pp + nn];
-                  while (nn > 3)
-                  {
-                     Int32 z = pp + nn;
-                     s->mtfa[(z)] = s->mtfa[(z)-1];
-                     s->mtfa[(z)-1] = s->mtfa[(z)-2];
-                     s->mtfa[(z)-2] = s->mtfa[(z)-3];
-                     s->mtfa[(z)-3] = s->mtfa[(z)-4];
-                     nn -= 4;
-                  }
-                  while (nn > 0)
-                  {
-                     s->mtfa[(pp + nn)] = s->mtfa[(pp + nn) - 1];
-                     nn--;
-                  };
-                  s->mtfa[pp] = uc;
-               }
-               else
-               {
-                  /* general case */
-                  lno = nn / MTFL_SIZE;
-                  off = nn % MTFL_SIZE;
-                  pp = s->mtfbase[lno] + off;
-                  uc = s->mtfa[pp];
-                  while (pp > s->mtfbase[lno])
-                  {
-                     s->mtfa[pp] = s->mtfa[pp - 1];
-                     pp--;
-                  };
-                  s->mtfbase[lno]++;
-                  while (lno > 0)
-                  {
-                     s->mtfbase[lno]--;
-                     s->mtfa[s->mtfbase[lno]] = s->mtfa[s->mtfbase[lno - 1] + MTFL_SIZE - 1];
-                     lno--;
-                  }
-                  s->mtfbase[0]--;
-                  s->mtfa[s->mtfbase[0]] = uc;
-                  if (s->mtfbase[0] == 0)
-                  {
-                     kk = MTFA_SIZE - 1;
-                     for (ii = 256 / MTFL_SIZE - 1; ii >= 0; ii--)
-                     {
-                        for (jj = MTFL_SIZE - 1; jj >= 0; jj--)
-                        {
-                           s->mtfa[kk] = s->mtfa[s->mtfbase[ii] + jj];
-                           kk--;
-                        }
-                        s->mtfbase[ii] = kk + 1;
-                     }
-                  }
-               }
-            }
+            //    if (nn < MTFL_SIZE)
+            //    {
+            //       /* avoid general-case expense */
+            //       pp = s->mtfbase[0];
+            //       uc = s->mtfa[pp + nn];
+            //       while (nn > 3)
+            //       {
+            //          Int32 z = pp + nn;
+            //          s->mtfa[(z)] = s->mtfa[(z)-1];
+            //          s->mtfa[(z)-1] = s->mtfa[(z)-2];
+            //          s->mtfa[(z)-2] = s->mtfa[(z)-3];
+            //          s->mtfa[(z)-3] = s->mtfa[(z)-4];
+            //          nn -= 4;
+            //       }
+            //       while (nn > 0)
+            //       {
+            //          s->mtfa[(pp + nn)] = s->mtfa[(pp + nn) - 1];
+            //          nn--;
+            //       };
+            //       s->mtfa[pp] = uc;
+            //    }
+            //    else
+            //    {
+            //       /* general case */
+            //       lno = nn / MTFL_SIZE;
+            //       off = nn % MTFL_SIZE;
+            //       pp = s->mtfbase[lno] + off;
+            //       uc = s->mtfa[pp];
+            //       while (pp > s->mtfbase[lno])
+            //       {
+            //          s->mtfa[pp] = s->mtfa[pp - 1];
+            //          pp--;
+            //       };
+            //       s->mtfbase[lno]++;
+            //       while (lno > 0)
+            //       {
+            //          s->mtfbase[lno]--;
+            //          s->mtfa[s->mtfbase[lno]] = s->mtfa[s->mtfbase[lno - 1] + MTFL_SIZE - 1];
+            //          lno--;
+            //       }
+            //       s->mtfbase[0]--;
+            //       s->mtfa[s->mtfbase[0]] = uc;
+            //       if (s->mtfbase[0] == 0)
+            //       {
+            //          kk = MTFA_SIZE - 1;
+            //          for (ii = 256 / MTFL_SIZE - 1; ii >= 0; ii--)
+            //          {
+            //             for (jj = MTFL_SIZE - 1; jj >= 0; jj--)
+            //             {
+            //                s->mtfa[kk] = s->mtfa[s->mtfbase[ii] + jj];
+            //                kk--;
+            //             }
+            //             s->mtfbase[ii] = kk + 1;
+            //          }
+            //       }
+            //    }
+            // }
+            uc = mtf_next_sym(s, nextSym);
             /*-- end uc = MTF ( nextSym-1 ) --*/
 
             s->unzftab[s->seqToUnseq[uc]]++;
@@ -615,44 +620,45 @@ Int32 BZ2_decompress(DState *s)
       if (s->smallDecompress)
       {
 
-         /*-- Make a copy of cftab, used in generation of T --*/
-         for (i = 0; i <= 256; i++)
-            s->cftabCopy[i] = s->cftab[i];
+         // /*-- Make a copy of cftab, used in generation of T --*/
+         // for (i = 0; i <= 256; i++)
+         //    s->cftabCopy[i] = s->cftab[i];
 
-         /*-- compute the T vector --*/
-         for (i = 0; i < nblock; i++)
-         {
-            uc = (UChar)(s->ll16[i]);
-            SET_LL(i, s->cftabCopy[uc]);
-            s->cftabCopy[uc]++;
-         }
+         // /*-- compute the T vector --*/
+         // for (i = 0; i < nblock; i++)
+         // {
+         //    uc = (UChar)(s->ll16[i]);
+         //    SET_LL(i, s->cftabCopy[uc]);
+         //    s->cftabCopy[uc]++;
+         // }
 
-         /*-- Compute T^(-1) by pointer reversal on T --*/
-         i = s->origPtr;
-         j = GET_LL(i);
-         do
-         {
-            Int32 tmp = GET_LL(j);
-            SET_LL(j, i);
-            i = j;
-            j = tmp;
-         } while (i != s->origPtr);
+         // /*-- Compute T^(-1) by pointer reversal on T --*/
+         // i = s->origPtr;
+         // j = GET_LL(i);
+         // do
+         // {
+         //    Int32 tmp = GET_LL(j);
+         //    SET_LL(j, i);
+         //    i = j;
+         //    j = tmp;
+         // } while (i != s->origPtr);
 
-         s->tPos = s->origPtr;
-         s->nblock_used = 0;
-         if (s->blockRandomised)
-         {
-            BZ_RAND_INIT_MASK;
-            BZ_GET_SMALL(s->k0);
-            s->nblock_used++;
-            BZ_RAND_UPD_MASK;
-            s->k0 ^= BZ_RAND_MASK;
-         }
-         else
-         {
-            BZ_GET_SMALL(s->k0);
-            s->nblock_used++;
-         }
+         // s->tPos = s->origPtr;
+         // s->nblock_used = 0;
+         // if (s->blockRandomised)
+         // {
+         //    BZ_RAND_INIT_MASK;
+         //    BZ_GET_SMALL(s->k0);
+         //    s->nblock_used++;
+         //    BZ_RAND_UPD_MASK;
+         //    s->k0 ^= BZ_RAND_MASK;
+         // }
+         // else
+         // {
+         //    BZ_GET_SMALL(s->k0);
+         //    s->nblock_used++;
+         // }
+         dc_smallDecompress(s, nblock);
       }
       else
       {

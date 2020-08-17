@@ -436,7 +436,7 @@ pub extern "C" fn BZ2_bzCompressInit(
     return BZ_OK as i32;
 }
 
-fn BZALLOC(strm: &mut bz_stream, nnn: i32) -> *mut c_void {
+pub fn BZALLOC(strm: &mut bz_stream, nnn: i32) -> *mut c_void {
     let bzalloc = strm.bzalloc.unwrap();
     unsafe { bzalloc(strm.opaque, nnn, 1) }
 }
