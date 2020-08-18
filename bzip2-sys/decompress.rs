@@ -948,7 +948,8 @@ fn BZ_GET_SMALL(s: &mut DState, nblock: i32) -> i32 {
 
     // c_tPos is unsigned, hence test < 0 is pointless.
     if s.tPos >= 100000 * s.blockSize100k as u32 {
-        return 1;
+        // exit enitre function
+        //return 1;
     }
     let result = BZ2_indexIntoF(s.tPos as i32, s.cftab.as_mut_ptr());
     s.tPos = GET_LL(ll16, ll4, s.tPos as u8);
@@ -964,4 +965,44 @@ fn BZ_RAND_UPD_MASK(s: &mut DState) {
         }
     }
     s.rNToGo -= 1;
+}
+
+#[no_mangle]
+pub extern "C" fn dc_generalDecompress(s: &mut DState, nblock: i32) {
+    let tt = unsafe { from_raw_parts_mut(s.tt, nblock as usize) };
+
+    // compute the T^(-1) vector
+    for i in 0..nblock as usize {
+        let uc = (tt[i] & 0xff) as usize;
+        tt[s.cftab[uc] as usize] |= (i as u32) << 8;
+        s.cftab[uc] += 1;
+    }
+
+    s.tPos = tt[s.origPtr as usize] >> 8;
+    s.nblock_used = 0;
+    if s.blockRandomised > 0 {
+        s.rNToGo = 0;
+        s.rTPos = 0;
+        s.k0 = BZ_GET_FAST(s, nblock);
+        s.nblock_used += 1;
+        BZ_RAND_UPD_MASK(s);
+        s.k0 ^= if s.rNToGo == 1 { 1 } else { 0 };
+    } else {
+        s.k0 = BZ_GET_FAST(s, nblock);
+        s.nblock_used += 1;
+    }
+}
+
+fn BZ_GET_FAST(s: &mut DState, nblock: i32) -> i32 {
+    let tt = unsafe { from_raw_parts_mut(s.tt, nblock as usize) };
+
+    // c_tPos is unsigned, hence test < 0 is pointless.
+    if s.tPos >= 100000 * s.blockSize100k as u32 {
+        // exit enitre function
+        // return 1;
+    }
+    s.tPos = tt[s.tPos as usize];
+    let result = (s.tPos & 0xff) as i32;
+    s.tPos >>= 8;
+    result
 }

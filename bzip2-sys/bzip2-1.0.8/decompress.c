@@ -663,29 +663,30 @@ Int32 BZ2_decompress(DState *s)
       else
       {
 
-         /*-- compute the T^(-1) vector --*/
-         for (i = 0; i < nblock; i++)
-         {
-            uc = (UChar)(s->tt[i] & 0xff);
-            s->tt[s->cftab[uc]] |= (i << 8);
-            s->cftab[uc]++;
-         }
+         // /*-- compute the T^(-1) vector --*/
+         // for (i = 0; i < nblock; i++)
+         // {
+         //    uc = (UChar)(s->tt[i] & 0xff);
+         //    s->tt[s->cftab[uc]] |= (i << 8);
+         //    s->cftab[uc]++;
+         // }
 
-         s->tPos = s->tt[s->origPtr] >> 8;
-         s->nblock_used = 0;
-         if (s->blockRandomised)
-         {
-            BZ_RAND_INIT_MASK;
-            BZ_GET_FAST(s->k0);
-            s->nblock_used++;
-            BZ_RAND_UPD_MASK;
-            s->k0 ^= BZ_RAND_MASK;
-         }
-         else
-         {
-            BZ_GET_FAST(s->k0);
-            s->nblock_used++;
-         }
+         // s->tPos = s->tt[s->origPtr] >> 8;
+         // s->nblock_used = 0;
+         // if (s->blockRandomised)
+         // {
+         //    BZ_RAND_INIT_MASK;
+         //    BZ_GET_FAST(s->k0);
+         //    s->nblock_used++;
+         //    BZ_RAND_UPD_MASK;
+         //    s->k0 ^= BZ_RAND_MASK;
+         // }
+         // else
+         // {
+         //    BZ_GET_FAST(s->k0);
+         //    s->nblock_used++;
+         // }
+         dc_generalDecompress(s, nblock);
       }
 
       RETURN(BZ_OK);
