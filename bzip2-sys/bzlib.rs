@@ -5,10 +5,12 @@ use std::process::exit;
 
 use crate::compress::BZ2_compressBlock;
 use crate::crctable::BZ2_crc32Table;
+use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, EState, BZ_CONFIG_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK,
+    bz_stream, DState, EState, BZ_CONFIG_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK,
     BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK,
     BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT,
+    BZ_X_MAGIC_1,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -541,4 +543,524 @@ pub extern "C" fn BZ2_bzCompress(strm: *mut bz_stream, action: i32) -> i32 {
         }
     }
     // return BZ_OK as i32; // not reached
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzCompressEnd(strm: *mut bz_stream) -> i32 {
+    if strm.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+
+    let strm = unsafe { strm.as_mut() }.unwrap();
+
+    let s = strm.state as *mut EState;
+    if s.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+
+    let s = unsafe { s.as_mut() }.unwrap();
+
+    if s.strm != strm {
+        return BZ_PARAM_ERROR;
+    }
+
+    if !s.arr1.is_null() {
+        BZFREE(strm, s.arr1 as *mut c_void);
+    }
+
+    if !s.arr2.is_null() {
+        BZFREE(strm, s.arr2 as *mut c_void);
+    }
+
+    if s.ftab.is_null() {
+        BZFREE(strm, s.ftab as *mut c_void);
+    }
+
+    BZFREE(strm, strm.state);
+
+    strm.state = std::ptr::null_mut();
+
+    return BZ_OK as i32;
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzDecompressInit(strm: *mut bz_stream, verbosity: i32, small: i32) -> i32 {
+    if !bz_config_ok() > 0 {
+        return BZ_CONFIG_ERROR;
+    };
+
+    if strm.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+    if small != 0 && small != 1 {
+        return BZ_PARAM_ERROR;
+    }
+    if verbosity < 0 || verbosity > 4 {
+        return BZ_PARAM_ERROR;
+    }
+
+    let strm = unsafe { strm.as_mut() }.unwrap();
+
+    if strm.bzalloc.is_none() {
+        strm.bzalloc = Some(default_bzalloc);
+    }
+    if strm.bzfree.is_none() {
+        strm.bzfree = Some(default_bzfree);
+    }
+
+    let s_raw = BZALLOC(strm, size_of::<DState>() as i32) as *mut DState;
+    if s_raw.is_null() {
+        return BZ_MEM_ERROR;
+    }
+
+    let s = unsafe { s_raw.as_mut() }.unwrap();
+
+    s.strm = strm;
+    strm.state = s_raw as *mut c_void;
+    s.state = BZ_X_MAGIC_1 as i32;
+    s.bsLive = 0;
+    s.bsBuff = 0;
+    s.calculatedCombinedCRC = 0;
+    strm.total_in_lo32 = 0;
+    strm.total_in_hi32 = 0;
+    strm.total_out_lo32 = 0;
+    strm.total_out_hi32 = 0;
+    s.smallDecompress = small as u8;
+    s.ll4 = std::ptr::null_mut();
+    s.ll16 = std::ptr::null_mut();
+    s.tt = std::ptr::null_mut();
+    s.currBlockNo = 0;
+    s.verbosity = verbosity;
+
+    return BZ_OK as i32;
+}
+
+fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
+    //    UChar k1;
+    let strm = unsafe { s.strm.as_mut() }.unwrap();
+
+    if s.blockRandomised > 0 {
+        loop {
+            // try to finish existing run
+            loop {
+                if strm.avail_out == 0 {
+                    return FALSE;
+                }
+                if s.state_out_len == 0 {
+                    break;
+                }
+                unsafe { *strm.next_out = s.state_out_ch as i8 };
+                s.calculatedBlockCRC = bz_update_crc(s.calculatedBlockCRC, s.state_out_ch);
+
+                s.state_out_len -= 1;
+                unsafe { *strm.next_out += 1 };
+                strm.avail_out -= 1;
+                strm.total_out_lo32 += 1;
+                if strm.total_out_lo32 == 0 {
+                    strm.total_out_hi32 += 1;
+                }
+            }
+
+            // can a new run be started?
+            if s.nblock_used == s.save_nblock + 1 {
+                return FALSE;
+            }
+
+            // Only caused by corrupt data stream?
+            if s.nblock_used > s.save_nblock + 1 {
+                return TRUE;
+            }
+
+            s.state_out_len = 1;
+            s.state_out_ch = s.k0 as u8;
+            let mut k1 = BZ_GET_FAST(s);
+
+            BZ_RAND_UPD_MASK(s);
+
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 != s.k0 {
+                s.k0 = k1;
+                continue;
+            };
+
+            s.state_out_len = 2;
+            k1 = BZ_GET_FAST(s);
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 != s.k0 {
+                s.k0 = k1;
+                continue;
+            };
+
+            s.state_out_len = 3;
+            k1 = BZ_GET_FAST(s);
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 != s.k0 {
+                s.k0 = k1;
+                continue;
+            };
+
+            k1 = BZ_GET_FAST(s);
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            s.state_out_len = k1 as i32 + 4;
+            s.k0 = BZ_GET_FAST(s);
+            BZ_RAND_UPD_MASK(s);
+            s.k0 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+        }
+    } else {
+        // restore
+        let mut c_calculatedBlockCRC = s.calculatedBlockCRC as u32;
+        let mut c_state_out_ch = s.state_out_ch as u8;
+        let mut c_state_out_len = s.state_out_len as i32;
+        let mut c_nblock_used = s.nblock_used as i32;
+        let mut c_k0 = s.k0 as i32;
+        let c_tt = s.tt as *mut u32;
+        let c_tt_safe = unsafe { from_raw_parts_mut(c_tt, s.tPos as usize + 1) };
+        let mut c_tPos = s.tPos as u32;
+        let cs_next_out = strm.next_out as *mut i8;
+        let mut cs_avail_out = strm.avail_out as u32;
+        let ro_blockSize100k = s.blockSize100k as i32;
+        // end restore
+
+        let avail_out_INIT = cs_avail_out;
+        let s_save_nblockPP = s.save_nblock + 1;
+        //   unsigned int total_out_lo32_old;
+
+        'return_notr: loop {
+            loop {
+                // try to finish existing run
+                if c_state_out_len > 0 {
+                    loop {
+                        if cs_avail_out == 0 {
+                            break 'return_notr;
+                        }
+                        if c_state_out_len == 1 {
+                            break;
+                        }
+                        unsafe { *cs_next_out = c_state_out_ch as i8 };
+                        c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
+
+                        c_state_out_len -= 1;
+                        unsafe { *cs_next_out += 1 };
+                        cs_avail_out -= 1;
+                    }
+                    //  s_state_out_len_eq_one:
+
+                    if (cs_avail_out == 0) {
+                        c_state_out_len = 1;
+                        break 'return_notr;
+                    };
+                    unsafe { *cs_next_out = c_state_out_ch as i8 };
+                    c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
+
+                    unsafe { *cs_next_out += 1 };
+                    cs_avail_out -= 1;
+                }
+                // Only caused by corrupt data stream?
+                if c_nblock_used > s_save_nblockPP {
+                    return TRUE;
+                }
+
+                // can a new run be started?
+                if c_nblock_used == s_save_nblockPP {
+                    c_state_out_len = 0;
+                    break 'return_notr;
+                };
+                c_state_out_ch = c_k0 as u8;
+
+                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+                let mut k1 = kt;
+                c_tPos = tPos;
+
+                c_nblock_used += 1;
+                if k1 != c_k0 {
+                    c_k0 = k1;
+                    // goto s_state_out_len_eq_one;
+                };
+                if c_nblock_used == s_save_nblockPP {
+                    // goto s_state_out_len_eq_one;
+                }
+
+                c_state_out_len = 2;
+
+                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+                k1 = kt;
+                c_tPos = tPos;
+
+                c_nblock_used += 1;
+                if c_nblock_used == s_save_nblockPP {
+                    continue;
+                }
+                if k1 != c_k0 {
+                    c_k0 = k1;
+                    continue;
+                };
+
+                c_state_out_len = 3;
+
+                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+                k1 = kt;
+                c_tPos = tPos;
+
+                c_nblock_used += 1;
+                if c_nblock_used == s_save_nblockPP {
+                    continue;
+                }
+                if k1 as i32 != c_k0 {
+                    c_k0 = k1 as i32;
+                    continue;
+                };
+
+                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+                k1 = kt;
+                c_tPos = tPos;
+
+                c_nblock_used += 1;
+                c_state_out_len = k1 as i32 + 4;
+
+                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+                c_k0 = kt;
+                c_tPos = tPos;
+                c_nblock_used += 1;
+            }
+            break;
+        }
+
+        //    return_notr:
+        let total_out_lo32_old = strm.total_out_lo32;
+        strm.total_out_lo32 += avail_out_INIT - cs_avail_out;
+        if strm.total_out_lo32 < total_out_lo32_old {
+            strm.total_out_hi32 += 1;
+        }
+
+        // save
+        s.calculatedBlockCRC = c_calculatedBlockCRC;
+        s.state_out_ch = c_state_out_ch;
+        s.state_out_len = c_state_out_len;
+        s.nblock_used = c_nblock_used;
+        s.k0 = c_k0;
+        s.tt = c_tt;
+        s.tPos = c_tPos;
+        unsafe { *strm.next_out = cs_next_out as i8 };
+        strm.avail_out = cs_avail_out;
+        // end save
+    }
+    return FALSE;
+}
+
+fn BZ_GET_FAST_C(c_tt: &mut [u32], ro_blockSize100k: u32, c_tPos: u32) -> (i32, u32) {
+    /* c_tPos is unsigned, hence test < 0 is pointless. */
+    if c_tPos >= 100000 * ro_blockSize100k {
+        // return TRUE;
+    }
+    let mut l_tPos = c_tt[c_tPos as usize];
+    let cccc = (l_tPos & 0xff) as i32;
+    l_tPos >>= 8;
+    (cccc, l_tPos)
+}
+
+#[no_mangle]
+pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
+    //    UChar k1;
+    let strm = unsafe { s.strm.as_mut() }.unwrap();
+    let mut k1 = 0;
+    if s.blockRandomised > 0 {
+        loop {
+            // try to finish existing run
+            loop {
+                if strm.avail_out == 0 {
+                    return FALSE;
+                }
+                if s.state_out_len == 0 {
+                    break;
+                }
+                unsafe { *strm.next_out = s.state_out_ch as i8 };
+                s.calculatedBlockCRC = bz_update_crc(s.calculatedBlockCRC, s.state_out_ch);
+                s.state_out_len -= 1;
+                unsafe { *strm.next_out += 1 };
+                strm.avail_out -= 1;
+                strm.total_out_lo32 += 1;
+                if strm.total_out_lo32 == 0 {
+                    strm.total_out_hi32 += 1;
+                }
+            }
+
+            // can a new run be started?
+            if s.nblock_used == s.save_nblock + 1 {
+                return FALSE;
+            }
+
+            // Only caused by corrupt data stream?
+            if s.nblock_used > s.save_nblock + 1 {
+                return TRUE;
+            }
+
+            s.state_out_len = 1;
+            s.state_out_ch = s.k0 as u8;
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 as i32 != s.k0 {
+                s.k0 = k1 as i32;
+                continue;
+            };
+
+            s.state_out_len = 2;
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 as i32 != s.k0 {
+                s.k0 = k1 as i32;
+                continue;
+            };
+
+            s.state_out_len = 3;
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 as i32 != s.k0 {
+                s.k0 = k1 as i32;
+                continue;
+            };
+
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            BZ_RAND_UPD_MASK(s);
+            k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+            s.state_out_len = k1 as i32 + 4;
+            s.k0 = BZ_GET_SMALL(s, s.nblock_used as u32) as i32;
+
+            BZ_RAND_UPD_MASK(s);
+            s.k0 ^= if s.rNToGo == 1 { 1 } else { 0 };
+            s.nblock_used += 1;
+        }
+    } else {
+        loop {
+            /* try to finish existing run */
+            loop {
+                if strm.avail_out == 0 {
+                    return FALSE;
+                }
+                if s.state_out_len == 0 {
+                    break;
+                }
+                // *((UChar *)(s.strm.next_out)) = s.state_out_ch;
+                // BZ_UPDATE_CRC(s.calculatedBlockCRC, s.state_out_ch);
+                s.state_out_len -= 1;
+                unsafe { *strm.next_out += 1 };
+                strm.avail_out -= 1;
+                strm.total_out_lo32 += 1;
+                if strm.total_out_lo32 == 0 {
+                    strm.total_out_hi32 += 1;
+                }
+            }
+
+            // can a new run be started?
+            if s.nblock_used == s.save_nblock + 1 {
+                return FALSE;
+            }
+
+            // Only caused by corrupt data stream?
+            if s.nblock_used > s.save_nblock + 1 {
+                return TRUE;
+            }
+
+            s.state_out_len = 1;
+            s.state_out_ch = s.k0 as u8;
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 as i32 != s.k0 {
+                s.k0 = k1 as i32;
+                continue;
+            };
+
+            s.state_out_len = 2;
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 as i32 != s.k0 {
+                s.k0 = k1 as i32;
+                continue;
+            };
+
+            s.state_out_len = 3;
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            s.nblock_used += 1;
+            if s.nblock_used == s.save_nblock + 1 {
+                continue;
+            }
+            if k1 as i32 != s.k0 {
+                s.k0 = k1 as i32;
+                continue;
+            };
+
+            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+
+            s.nblock_used += 1;
+            s.state_out_len = k1 as i32 + 4;
+            s.k0 = BZ_GET_SMALL(s, s.nblock_used as u32) as i32;
+            s.nblock_used += 1;
+        }
+    }
+}
+
+fn BZ_GET_SMALL(s: &mut DState, nblock: u32) -> u32 {
+    let ll4 = unsafe { from_raw_parts_mut(s.ll4, nblock as usize) };
+    let ll16 = unsafe { from_raw_parts_mut(s.ll16, nblock as usize) };
+
+    // c_tPos is unsigned, hence test < 0 is pointless.
+    if s.tPos >= 100000 * s.blockSize100k as u32 {
+        //return TRUE;
+    }
+    let cccc = BZ2_indexIntoF(s.tPos as i32, s.cftab.as_mut_ptr()) as u32;
+    s.tPos = GET_LL(ll16, ll4, s.tPos as usize);
+    cccc
+}
+
+fn GET_LL(ll16: &mut [u16], ll4: &mut [u8], i: usize) -> u32 {
+    (ll16[i] as u32) | GET_LL4(ll4, i as u8) << 16
+}
+
+fn GET_LL4(ll4: &mut [u8], i: u8) -> u32 {
+    ((ll4[(i >> 1) as usize] as u32) >> (i << 2) & 0x4) & 0xF
 }

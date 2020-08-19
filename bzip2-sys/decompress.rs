@@ -10,8 +10,8 @@ use crate::private_ffi::{BZ_X_BCRC_1, BZ_X_BCRC_2, BZ_X_BCRC_3, BZ_X_BCRC_4};
 use crate::private_ffi::{
     BZ_X_BLKHDR_1, BZ_X_BLKHDR_2, BZ_X_BLKHDR_3, BZ_X_BLKHDR_4, BZ_X_BLKHDR_5, BZ_X_BLKHDR_6,
 };
+use crate::private_ffi::{BZ_X_CODING_1, MTFA_SIZE, MTFL_SIZE};
 use crate::private_ffi::{BZ_X_ORIGPTR_1, BZ_X_ORIGPTR_2, BZ_X_ORIGPTR_3};
-use crate::private_ffi::{MTFA_SIZE, MTFL_SIZE};
 use crate::randtable::BZ2_rNums;
 
 use std::mem::size_of;
@@ -956,7 +956,7 @@ fn BZ_GET_SMALL(s: &mut DState, nblock: i32) -> i32 {
     result
 }
 
-fn BZ_RAND_UPD_MASK(s: &mut DState) {
+pub fn BZ_RAND_UPD_MASK(s: &mut DState) {
     if s.rNToGo == 0 {
         s.rNToGo = BZ2_rNums[s.rTPos as usize];
         s.rTPos += 1;
@@ -983,26 +983,54 @@ pub extern "C" fn dc_generalDecompress(s: &mut DState, nblock: i32) {
     if s.blockRandomised > 0 {
         s.rNToGo = 0;
         s.rTPos = 0;
-        s.k0 = BZ_GET_FAST(s, nblock);
+        s.k0 = BZ_GET_FAST(s);
         s.nblock_used += 1;
         BZ_RAND_UPD_MASK(s);
         s.k0 ^= if s.rNToGo == 1 { 1 } else { 0 };
     } else {
-        s.k0 = BZ_GET_FAST(s, nblock);
+        s.k0 = BZ_GET_FAST(s);
         s.nblock_used += 1;
     }
 }
 
-fn BZ_GET_FAST(s: &mut DState, nblock: i32) -> i32 {
-    let tt = unsafe { from_raw_parts_mut(s.tt, nblock as usize) };
-
+pub fn BZ_GET_FAST(s: &mut DState) -> i32 {
     // c_tPos is unsigned, hence test < 0 is pointless.
     if s.tPos >= 100000 * s.blockSize100k as u32 {
-        // exit enitre function
+        // exit entire function
         // return 1;
     }
+
+    let tt = unsafe { from_raw_parts_mut(s.tt, s.tPos as usize + 1) };
     s.tPos = tt[s.tPos as usize];
     let result = (s.tPos & 0xff) as i32;
     s.tPos >>= 8;
     result
+}
+
+fn dc_codding_tables(s: &mut DState, nGroups: usize, alphaSize: i32, next: bool, mut curr: i32) {
+    for t in 0..nGroups {
+        // GET_BITS(BZ_X_CODING_1, curr, 5);
+        let mut uc = 0;
+        if next || s.state == BZ_X_CODING_1 as i32 {
+            let curr = get_bits(s, 5);
+        }
+        for i in 0..alphaSize {
+            loop {
+                if curr < 1 || curr > 20 {
+                    // RETURN(BZ_DATA_ERROR);
+                }
+                // GET_BIT(BZ_X_CODING_2, uc);
+                if uc == 0 {
+                    break;
+                }
+                // GET_BIT(BZ_X_CODING_3, uc);
+                if uc == 0 {
+                    curr += 1;
+                } else {
+                    curr -= 1;
+                }
+            }
+            s.len[t as usize][i as usize] = curr as u8;
+        }
+    }
 }
