@@ -1069,8 +1069,6 @@ fn GET_LL4(ll4: &mut [u8], i: u8) -> u32 {
 #[allow(unreachable_code)]
 #[no_mangle]
 pub extern "C" fn BZ2_bzDecompress(strm: *mut bz_stream) -> i32 {
-    //    Bool corrupt;
-    //    DState *s;
     if strm.is_null() {
         return BZ_PARAM_ERROR;
     }
@@ -1149,4 +1147,36 @@ pub extern "C" fn BZ2_bzDecompress(strm: *mut bz_stream) -> i32 {
 
 fn BZ_FINALISE_CRC(crcVar: u32) -> u32 {
     !crcVar
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzDecompressEnd(strm: *mut bz_stream) -> i32 {
+    if strm.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+    let strm = unsafe { strm.as_mut() }.unwrap();
+
+    if strm.state.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+    let s = unsafe { (strm.state as *mut DState).as_mut() }.unwrap();
+
+    if s.strm != strm {
+        return BZ_PARAM_ERROR;
+    }
+
+    if !s.tt.is_null() {
+        BZFREE(strm, s.tt as *mut c_void);
+    }
+    if !s.ll16.is_null() {
+        BZFREE(strm, s.ll16 as *mut c_void);
+    }
+    if !s.ll4.is_null() {
+        BZFREE(strm, s.ll4 as *mut c_void);
+    }
+
+    BZFREE(strm, strm.state);
+    strm.state = std::ptr::null_mut();
+
+    return BZ_OK as i32;
 }
