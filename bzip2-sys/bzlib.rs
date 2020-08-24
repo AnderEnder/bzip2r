@@ -7,17 +7,28 @@ use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, unRLE_obuf_to_output_FAST, BZ2_decompress, DState, EState, BZ_CONFIG_ERROR,
-    BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_MEM_ERROR, BZ_M_FINISHING,
-    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN,
-    BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
-    BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
+    bz_stream, free, malloc, unRLE_obuf_to_output_FAST, BZ2_decompress, DState, EState, BZFILE,
+    BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_IO_ERROR,
+    BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING,
+    BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END,
+    BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
 };
 use std::slice::from_raw_parts_mut;
 
 const BZ_VERSION: &str = "1.0.8, 13-Jul-2019";
 const TRUE: u8 = 1;
 const FALSE: u8 = 0;
+
+#[repr(C)]
+pub struct bzFile {
+    handle: *mut libc::FILE,
+    buf: [i8; BZ_MAX_UNUSED as usize],
+    bufN: i32,
+    writing: u8,
+    strm: bz_stream,
+    lastErr: i32,
+    initialisedOk: u8,
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn BZ2_bzlibVersion() -> *const i8 {
@@ -1189,4 +1200,75 @@ pub extern "C" fn myfeof(f: *mut libc::FILE) -> u8 {
     }
     unsafe { libc::ungetc(c, f) };
     return FALSE;
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzWriteOpen(
+    bzerror: *mut i32,
+    f: *mut libc::FILE,
+    blockSize100k: i32,
+    verbosity: i32,
+    mut workFactor: i32,
+) -> *mut BZFILE {
+    let bzf = std::ptr::null_mut() as *mut bzFile;
+
+    let null = std::ptr::null_mut();
+
+    BZ_SETERR(bzf, bzerror, BZ_OK as i32);
+
+    if f.is_null()
+        || (blockSize100k < 1 || blockSize100k > 9)
+        || (workFactor < 0 || workFactor > 250)
+        || (verbosity < 0 || verbosity > 4)
+    {
+        BZ_SETERR(bzf, bzerror, BZ_PARAM_ERROR);
+        return null;
+    };
+
+    if unsafe { libc::ferror(f) > 0 } {
+        BZ_SETERR(bzf, bzerror, BZ_IO_ERROR);
+        return null;
+    };
+
+    let bzf_raw = unsafe { malloc(size_of::<bzFile>() as u64) as *mut bzFile };
+    if bzf_raw.is_null() {
+        BZ_SETERR(bzf, bzerror, BZ_MEM_ERROR);
+        return null;
+    };
+
+    let bzf = unsafe { (bzf_raw as *mut bzFile).as_mut() }.unwrap();
+
+    BZ_SETERR(bzf, bzerror, BZ_OK as i32);
+    bzf.initialisedOk = FALSE;
+    bzf.bufN = 0;
+    bzf.handle = f;
+    bzf.writing = TRUE;
+    bzf.strm.bzalloc = None;
+    bzf.strm.bzfree = None;
+    bzf.strm.opaque = null;
+
+    if workFactor == 0 {
+        workFactor = 30;
+    }
+    let ret = BZ2_bzCompressInit(&mut bzf.strm, blockSize100k, verbosity, workFactor);
+    if ret != BZ_OK as i32 {
+        BZ_SETERR(bzf, bzerror, ret);
+        unsafe {
+            free(bzf_raw as *mut c_void);
+        }
+        return null;
+    };
+
+    bzf.strm.avail_in = 0;
+    bzf.initialisedOk = TRUE;
+    return bzf_raw as *mut BZFILE;
+}
+
+fn BZ_SETERR(bzf: *mut bzFile, bzerror: *mut i32, eee: i32) {
+    if let Some(bzerror) = unsafe { bzerror.as_mut() } {
+        *bzerror = eee;
+    }
+    if let Some(bzf) = unsafe { bzf.as_mut() } {
+        bzf.lastErr = eee;
+    }
 }
