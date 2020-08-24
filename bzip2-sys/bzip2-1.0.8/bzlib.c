@@ -1225,95 +1225,95 @@ typedef struct
 //                       nbytes_in, NULL, nbytes_out, NULL);
 // }
 
-void BZ_API(BZ2_bzWriteClose64)(int *bzerror,
-                                BZFILE *b,
-                                int abandon,
-                                unsigned int *nbytes_in_lo32,
-                                unsigned int *nbytes_in_hi32,
-                                unsigned int *nbytes_out_lo32,
-                                unsigned int *nbytes_out_hi32)
-{
-   Int32 n, n2, ret;
-   bzFile *bzf = (bzFile *)b;
+// void BZ_API(BZ2_bzWriteClose64)(int *bzerror,
+//                                 BZFILE *b,
+//                                 int abandon,
+//                                 unsigned int *nbytes_in_lo32,
+//                                 unsigned int *nbytes_in_hi32,
+//                                 unsigned int *nbytes_out_lo32,
+//                                 unsigned int *nbytes_out_hi32)
+// {
+//    Int32 n, n2, ret;
+//    bzFile *bzf = (bzFile *)b;
 
-   if (bzf == NULL)
-   {
-      BZ_SETERR(BZ_OK);
-      return;
-   };
-   if (!(bzf->writing))
-   {
-      BZ_SETERR(BZ_SEQUENCE_ERROR);
-      return;
-   };
-   if (ferror(bzf->handle))
-   {
-      BZ_SETERR(BZ_IO_ERROR);
-      return;
-   };
+//    if (bzf == NULL)
+//    {
+//       BZ_SETERR(BZ_OK);
+//       return;
+//    };
+//    if (!(bzf->writing))
+//    {
+//       BZ_SETERR(BZ_SEQUENCE_ERROR);
+//       return;
+//    };
+//    if (ferror(bzf->handle))
+//    {
+//       BZ_SETERR(BZ_IO_ERROR);
+//       return;
+//    };
 
-   if (nbytes_in_lo32 != NULL)
-      *nbytes_in_lo32 = 0;
-   if (nbytes_in_hi32 != NULL)
-      *nbytes_in_hi32 = 0;
-   if (nbytes_out_lo32 != NULL)
-      *nbytes_out_lo32 = 0;
-   if (nbytes_out_hi32 != NULL)
-      *nbytes_out_hi32 = 0;
+//    if (nbytes_in_lo32 != NULL)
+//       *nbytes_in_lo32 = 0;
+//    if (nbytes_in_hi32 != NULL)
+//       *nbytes_in_hi32 = 0;
+//    if (nbytes_out_lo32 != NULL)
+//       *nbytes_out_lo32 = 0;
+//    if (nbytes_out_hi32 != NULL)
+//       *nbytes_out_hi32 = 0;
 
-   if ((!abandon) && bzf->lastErr == BZ_OK)
-   {
-      while (True)
-      {
-         bzf->strm.avail_out = BZ_MAX_UNUSED;
-         bzf->strm.next_out = bzf->buf;
-         ret = BZ2_bzCompress(&(bzf->strm), BZ_FINISH);
-         if (ret != BZ_FINISH_OK && ret != BZ_STREAM_END)
-         {
-            BZ_SETERR(ret);
-            return;
-         };
+//    if ((!abandon) && bzf->lastErr == BZ_OK)
+//    {
+//       while (True)
+//       {
+//          bzf->strm.avail_out = BZ_MAX_UNUSED;
+//          bzf->strm.next_out = bzf->buf;
+//          ret = BZ2_bzCompress(&(bzf->strm), BZ_FINISH);
+//          if (ret != BZ_FINISH_OK && ret != BZ_STREAM_END)
+//          {
+//             BZ_SETERR(ret);
+//             return;
+//          };
 
-         if (bzf->strm.avail_out < BZ_MAX_UNUSED)
-         {
-            n = BZ_MAX_UNUSED - bzf->strm.avail_out;
-            n2 = fwrite((void *)(bzf->buf), sizeof(UChar),
-                        n, bzf->handle);
-            if (n != n2 || ferror(bzf->handle))
-            {
-               BZ_SETERR(BZ_IO_ERROR);
-               return;
-            };
-         }
+//          if (bzf->strm.avail_out < BZ_MAX_UNUSED)
+//          {
+//             n = BZ_MAX_UNUSED - bzf->strm.avail_out;
+//             n2 = fwrite((void *)(bzf->buf), sizeof(UChar),
+//                         n, bzf->handle);
+//             if (n != n2 || ferror(bzf->handle))
+//             {
+//                BZ_SETERR(BZ_IO_ERROR);
+//                return;
+//             };
+//          }
 
-         if (ret == BZ_STREAM_END)
-            break;
-      }
-   }
+//          if (ret == BZ_STREAM_END)
+//             break;
+//       }
+//    }
 
-   if (!abandon && !ferror(bzf->handle))
-   {
-      fflush(bzf->handle);
-      if (ferror(bzf->handle))
-      {
-         BZ_SETERR(BZ_IO_ERROR);
-         return;
-      };
-   }
+//    if (!abandon && !ferror(bzf->handle))
+//    {
+//       fflush(bzf->handle);
+//       if (ferror(bzf->handle))
+//       {
+//          BZ_SETERR(BZ_IO_ERROR);
+//          return;
+//       };
+//    }
 
-   if (nbytes_in_lo32 != NULL)
-      *nbytes_in_lo32 = bzf->strm.total_in_lo32;
-   if (nbytes_in_hi32 != NULL)
-      *nbytes_in_hi32 = bzf->strm.total_in_hi32;
-   if (nbytes_out_lo32 != NULL)
-      *nbytes_out_lo32 = bzf->strm.total_out_lo32;
-   if (nbytes_out_hi32 != NULL)
-      *nbytes_out_hi32 = bzf->strm.total_out_hi32;
+//    if (nbytes_in_lo32 != NULL)
+//       *nbytes_in_lo32 = bzf->strm.total_in_lo32;
+//    if (nbytes_in_hi32 != NULL)
+//       *nbytes_in_hi32 = bzf->strm.total_in_hi32;
+//    if (nbytes_out_lo32 != NULL)
+//       *nbytes_out_lo32 = bzf->strm.total_out_lo32;
+//    if (nbytes_out_hi32 != NULL)
+//       *nbytes_out_hi32 = bzf->strm.total_out_hi32;
 
-   BZ_SETERR(BZ_OK);
-   BZ2_bzCompressEnd(&(bzf->strm));
-   free(bzf);
-}
+//    BZ_SETERR(BZ_OK);
+//    BZ2_bzCompressEnd(&(bzf->strm));
+//    free(bzf);
+// }
 
 /*---------------------------------------------------*/
 BZFILE *BZ_API(BZ2_bzReadOpen)(int *bzerror,

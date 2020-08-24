@@ -7,11 +7,11 @@ use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, ferror, free, fwrite, malloc, unRLE_obuf_to_output_FAST, BZ2_bzWriteClose64,
-    BZ2_decompress, DState, EState, __sFILE, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH,
-    BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING,
-    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN,
-    BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
+    bz_stream, ferror, free, fwrite, malloc, unRLE_obuf_to_output_FAST, BZ2_decompress, DState,
+    EState, __sFILE, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH,
+    BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING,
+    BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK,
+    BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
     BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
 };
 use std::slice::from_raw_parts_mut;
@@ -1345,5 +1345,111 @@ pub extern "C" fn BZ2_bzWriteClose(
     nbytes_out: *mut u32,
 ) {
     let null = std::ptr::null_mut();
-    unsafe { BZ2_bzWriteClose64(bzerror, b, abandon, nbytes_in, null, nbytes_out, null) };
+    BZ2_bzWriteClose64(bzerror, b, abandon, nbytes_in, null, nbytes_out, null);
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzWriteClose64(
+    bzerror: *mut i32,
+    b: *mut BZFILE,
+    abandon: i32,
+    nbytes_in_lo32: *mut u32,
+    nbytes_in_hi32: *mut u32,
+    nbytes_out_lo32: *mut u32,
+    nbytes_out_hi32: *mut u32,
+) {
+    let bzf_raw = b as *mut bzFile;
+
+    if bzf_raw.is_null() {
+        BZ_SETERR(bzf_raw, bzerror, BZ_OK as i32);
+        return;
+    };
+    let bzf = unsafe { bzf_raw.as_mut() }.unwrap();
+
+    if !(bzf.writing > 0) {
+        BZ_SETERR(bzf, bzerror, BZ_SEQUENCE_ERROR);
+        return;
+    };
+    if unsafe { ferror(bzf.handle as *mut __sFILE) } > 0 {
+        BZ_SETERR(bzf, bzerror, BZ_IO_ERROR);
+        return;
+    };
+
+    if !nbytes_in_lo32.is_null() {
+        unsafe { *nbytes_in_lo32 = 0 };
+    }
+    if !nbytes_in_hi32.is_null() {
+        unsafe { *nbytes_in_hi32 = 0 };
+    }
+    if !nbytes_out_lo32.is_null() {
+        unsafe { *nbytes_out_lo32 = 0 };
+    }
+    if nbytes_out_hi32.is_null() {
+        unsafe { *nbytes_out_hi32 = 0 };
+    }
+
+    if !(abandon > 0) && bzf.lastErr == BZ_OK as i32 {
+        loop {
+            bzf.strm.avail_out = BZ_MAX_UNUSED;
+            bzf.strm.next_out = bzf.buf.as_mut_ptr();
+            let ret = BZ2_bzCompress(&mut bzf.strm, BZ_FINISH as i32);
+            if ret != BZ_FINISH_OK as i32 && ret != BZ_STREAM_END as i32 {
+                BZ_SETERR(bzf, bzerror, ret);
+                return;
+            };
+
+            if bzf.strm.avail_out < BZ_MAX_UNUSED {
+                let n = BZ_MAX_UNUSED - bzf.strm.avail_out;
+                let n2 = unsafe {
+                    fwrite(
+                        bzf.buf.as_mut_ptr() as *mut c_void,
+                        size_of::<u8>() as u64,
+                        n as u64,
+                        bzf.handle as *mut __sFILE,
+                    )
+                };
+                if n as u64 != n2 || unsafe { ferror(bzf.handle as *mut __sFILE) } > 0 {
+                    BZ_SETERR(bzf, bzerror, BZ_IO_ERROR);
+                    return;
+                };
+            }
+
+            if ret == BZ_STREAM_END as i32 {
+                break;
+            }
+        }
+    }
+
+    if !(abandon > 0) && !unsafe { ferror(bzf.handle as *mut __sFILE) } > 0 {
+        unsafe { libc::fflush(bzf.handle) };
+        if unsafe { ferror(bzf.handle as *mut __sFILE) } > 0 {
+            BZ_SETERR(bzf, bzerror, BZ_IO_ERROR);
+            return;
+        };
+    }
+
+    if nbytes_in_lo32.is_null() {
+        unsafe {
+            *nbytes_in_lo32 = bzf.strm.total_in_lo32;
+        }
+    }
+    if nbytes_in_hi32.is_null() {
+        unsafe {
+            *nbytes_in_hi32 = bzf.strm.total_in_hi32;
+        }
+    }
+    if nbytes_out_lo32.is_null() {
+        unsafe {
+            *nbytes_out_lo32 = bzf.strm.total_out_lo32;
+        }
+    }
+    if nbytes_out_hi32.is_null() {
+        unsafe {
+            *nbytes_out_hi32 = bzf.strm.total_out_hi32;
+        }
+    }
+
+    BZ_SETERR(bzf, bzerror, BZ_OK as i32);
+    BZ2_bzCompressEnd(&mut bzf.strm);
+    unsafe { free(bzf_raw as *mut c_void) };
 }
