@@ -11,7 +11,7 @@ use crate::private_ffi::{
     BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_MEM_ERROR, BZ_M_FINISHING,
     BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN,
     BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
-    BZ_X_MAGIC_1, BZ_X_OUTPUT,
+    BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -1179,4 +1179,14 @@ pub extern "C" fn BZ2_bzDecompressEnd(strm: *mut bz_stream) -> i32 {
     strm.state = std::ptr::null_mut();
 
     return BZ_OK as i32;
+}
+
+#[no_mangle]
+pub extern "C" fn myfeof(f: *mut libc::FILE) -> u8 {
+    let c = unsafe { libc::fgetc(f) };
+    if c == EOF {
+        return TRUE;
+    }
+    unsafe { libc::ungetc(c, f) };
+    return FALSE;
 }

@@ -1031,29 +1031,29 @@ Bool unRLE_obuf_to_output_FAST(DState *s)
 // }
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzDecompressEnd)(bz_stream *strm)
-{
-   DState *s;
-   if (strm == NULL)
-      return BZ_PARAM_ERROR;
-   s = strm->state;
-   if (s == NULL)
-      return BZ_PARAM_ERROR;
-   if (s->strm != strm)
-      return BZ_PARAM_ERROR;
+// int BZ_API(BZ2_bzDecompressEnd)(bz_stream *strm)
+// {
+//    DState *s;
+//    if (strm == NULL)
+//       return BZ_PARAM_ERROR;
+//    s = strm->state;
+//    if (s == NULL)
+//       return BZ_PARAM_ERROR;
+//    if (s->strm != strm)
+//       return BZ_PARAM_ERROR;
 
-   if (s->tt != NULL)
-      BZFREE(s->tt);
-   if (s->ll16 != NULL)
-      BZFREE(s->ll16);
-   if (s->ll4 != NULL)
-      BZFREE(s->ll4);
+//    if (s->tt != NULL)
+//       BZFREE(s->tt);
+//    if (s->ll16 != NULL)
+//       BZFREE(s->ll16);
+//    if (s->ll4 != NULL)
+//       BZFREE(s->ll4);
 
-   BZFREE(strm->state);
-   strm->state = NULL;
+//    BZFREE(strm->state);
+//    strm->state = NULL;
 
-   return BZ_OK;
-}
+//    return BZ_OK;
+// }
 
 #ifndef BZ_NO_STDIO
 /*---------------------------------------------------*/
@@ -1080,14 +1080,14 @@ typedef struct
 } bzFile;
 
 /*---------------------------------------------*/
-static Bool myfeof(FILE *f)
-{
-   Int32 c = fgetc(f);
-   if (c == EOF)
-      return True;
-   ungetc(c, f);
-   return False;
-}
+// static Bool myfeof(FILE *f)
+// {
+//    Int32 c = fgetc(f);
+//    if (c == EOF)
+//       return True;
+//    ungetc(c, f);
+//    return False;
+// }
 
 /*---------------------------------------------------*/
 BZFILE *BZ_API(BZ2_bzWriteOpen)(int *bzerror,
