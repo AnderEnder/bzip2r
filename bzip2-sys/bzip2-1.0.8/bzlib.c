@@ -1149,70 +1149,70 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-void BZ_API(BZ2_bzWrite)(int *bzerror,
-                         BZFILE *b,
-                         void *buf,
-                         int len)
-{
-   Int32 n, n2, ret;
-   bzFile *bzf = (bzFile *)b;
+// void BZ_API(BZ2_bzWrite)(int *bzerror,
+//                          BZFILE *b,
+//                          void *buf,
+//                          int len)
+// {
+//    Int32 n, n2, ret;
+//    bzFile *bzf = (bzFile *)b;
 
-   BZ_SETERR(BZ_OK);
-   if (bzf == NULL || buf == NULL || len < 0)
-   {
-      BZ_SETERR(BZ_PARAM_ERROR);
-      return;
-   };
-   if (!(bzf->writing))
-   {
-      BZ_SETERR(BZ_SEQUENCE_ERROR);
-      return;
-   };
-   if (ferror(bzf->handle))
-   {
-      BZ_SETERR(BZ_IO_ERROR);
-      return;
-   };
+//    BZ_SETERR(BZ_OK);
+//    if (bzf == NULL || buf == NULL || len < 0)
+//    {
+//       BZ_SETERR(BZ_PARAM_ERROR);
+//       return;
+//    };
+//    if (!(bzf->writing))
+//    {
+//       BZ_SETERR(BZ_SEQUENCE_ERROR);
+//       return;
+//    };
+//    if (ferror(bzf->handle))
+//    {
+//       BZ_SETERR(BZ_IO_ERROR);
+//       return;
+//    };
 
-   if (len == 0)
-   {
-      BZ_SETERR(BZ_OK);
-      return;
-   };
+//    if (len == 0)
+//    {
+//       BZ_SETERR(BZ_OK);
+//       return;
+//    };
 
-   bzf->strm.avail_in = len;
-   bzf->strm.next_in = buf;
+//    bzf->strm.avail_in = len;
+//    bzf->strm.next_in = buf;
 
-   while (True)
-   {
-      bzf->strm.avail_out = BZ_MAX_UNUSED;
-      bzf->strm.next_out = bzf->buf;
-      ret = BZ2_bzCompress(&(bzf->strm), BZ_RUN);
-      if (ret != BZ_RUN_OK)
-      {
-         BZ_SETERR(ret);
-         return;
-      };
+//    while (True)
+//    {
+//       bzf->strm.avail_out = BZ_MAX_UNUSED;
+//       bzf->strm.next_out = bzf->buf;
+//       ret = BZ2_bzCompress(&(bzf->strm), BZ_RUN);
+//       if (ret != BZ_RUN_OK)
+//       {
+//          BZ_SETERR(ret);
+//          return;
+//       };
 
-      if (bzf->strm.avail_out < BZ_MAX_UNUSED)
-      {
-         n = BZ_MAX_UNUSED - bzf->strm.avail_out;
-         n2 = fwrite((void *)(bzf->buf), sizeof(UChar),
-                     n, bzf->handle);
-         if (n != n2 || ferror(bzf->handle))
-         {
-            BZ_SETERR(BZ_IO_ERROR);
-            return;
-         };
-      }
+//       if (bzf->strm.avail_out < BZ_MAX_UNUSED)
+//       {
+//          n = BZ_MAX_UNUSED - bzf->strm.avail_out;
+//          n2 = fwrite((void *)(bzf->buf), sizeof(UChar),
+//                      n, bzf->handle);
+//          if (n != n2 || ferror(bzf->handle))
+//          {
+//             BZ_SETERR(BZ_IO_ERROR);
+//             return;
+//          };
+//       }
 
-      if (bzf->strm.avail_in == 0)
-      {
-         BZ_SETERR(BZ_OK);
-         return;
-      };
-   }
-}
+//       if (bzf->strm.avail_in == 0)
+//       {
+//          BZ_SETERR(BZ_OK);
+//          return;
+//       };
+//    }
+// }
 
 /*---------------------------------------------------*/
 void BZ_API(BZ2_bzWriteClose)(int *bzerror,

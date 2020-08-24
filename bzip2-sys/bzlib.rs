@@ -7,11 +7,12 @@ use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, free, malloc, unRLE_obuf_to_output_FAST, BZ2_decompress, DState, EState, BZFILE,
-    BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_IO_ERROR,
-    BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING,
-    BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END,
-    BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
+    bz_stream, ferror, free, fwrite, malloc, unRLE_obuf_to_output_FAST, BZ2_decompress, DState,
+    EState, __sFILE, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH,
+    BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING,
+    BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK,
+    BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
+    BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -1270,5 +1271,67 @@ fn BZ_SETERR(bzf: *mut bzFile, bzerror: *mut i32, eee: i32) {
     }
     if let Some(bzf) = unsafe { bzf.as_mut() } {
         bzf.lastErr = eee;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzWrite(bzerror: *mut i32, b: *mut BZFILE, buf: *mut c_void, len: i32) {
+    //    Int32 n, n2, ret;
+    let bzf = b as *mut bzFile;
+
+    BZ_SETERR(bzf, bzerror, BZ_OK as i32);
+    if bzf.is_null() || buf.is_null() || len < 0 {
+        BZ_SETERR(bzf, bzerror, BZ_PARAM_ERROR);
+        return;
+    };
+
+    let bzf = unsafe { bzf.as_mut() }.unwrap();
+
+    if !(bzf.writing > 0) {
+        BZ_SETERR(bzf, bzerror, BZ_SEQUENCE_ERROR);
+        return;
+    };
+    if unsafe { ferror(bzf.handle as *mut __sFILE) } > 0 {
+        BZ_SETERR(bzf, bzerror, BZ_IO_ERROR);
+        return;
+    };
+
+    if len == 0 {
+        BZ_SETERR(bzf, bzerror, BZ_OK as i32);
+        return;
+    };
+
+    bzf.strm.avail_in = len as u32;
+    bzf.strm.next_in = buf as *mut i8;
+
+    loop {
+        bzf.strm.avail_out = BZ_MAX_UNUSED;
+        bzf.strm.next_out = bzf.buf.as_mut_ptr();
+        let ret = BZ2_bzCompress(&mut bzf.strm, BZ_RUN as i32);
+        if ret != BZ_RUN_OK as i32 {
+            BZ_SETERR(bzf, bzerror, ret);
+            return;
+        };
+
+        if bzf.strm.avail_out < BZ_MAX_UNUSED {
+            let n = BZ_MAX_UNUSED - bzf.strm.avail_out;
+            let n2 = unsafe {
+                fwrite(
+                    bzf.buf.as_mut_ptr() as *mut c_void,
+                    size_of::<u8>() as u64,
+                    n as u64,
+                    bzf.handle as *mut __sFILE,
+                )
+            };
+            if n as u64 != n2 || unsafe { ferror(bzf.handle as *mut __sFILE) } > 0 {
+                BZ_SETERR(bzf, bzerror, BZ_IO_ERROR);
+                return;
+            };
+        }
+
+        if bzf.strm.avail_in == 0 {
+            BZ_SETERR(bzf, bzerror, BZ_OK as i32);
+            return;
+        };
     }
 }
