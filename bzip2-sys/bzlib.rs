@@ -7,11 +7,11 @@ use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, ferror, free, fwrite, malloc, unRLE_obuf_to_output_FAST, BZ2_decompress, DState,
-    EState, __sFILE, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH,
-    BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING,
-    BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK,
-    BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
+    bz_stream, ferror, free, fwrite, malloc, unRLE_obuf_to_output_FAST, BZ2_bzWriteClose64,
+    BZ2_decompress, DState, EState, __sFILE, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH,
+    BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING,
+    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN,
+    BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
     BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF,
 };
 use std::slice::from_raw_parts_mut;
@@ -1334,4 +1334,16 @@ pub extern "C" fn BZ2_bzWrite(bzerror: *mut i32, b: *mut BZFILE, buf: *mut c_voi
             return;
         };
     }
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzWriteClose(
+    bzerror: *mut i32,
+    b: *mut BZFILE,
+    abandon: i32,
+    nbytes_in: *mut u32,
+    nbytes_out: *mut u32,
+) {
+    let null = std::ptr::null_mut();
+    unsafe { BZ2_bzWriteClose64(bzerror, b, abandon, nbytes_in, null, nbytes_out, null) };
 }

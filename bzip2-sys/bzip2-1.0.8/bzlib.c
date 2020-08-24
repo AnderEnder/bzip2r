@@ -1215,15 +1215,15 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-void BZ_API(BZ2_bzWriteClose)(int *bzerror,
-                              BZFILE *b,
-                              int abandon,
-                              unsigned int *nbytes_in,
-                              unsigned int *nbytes_out)
-{
-   BZ2_bzWriteClose64(bzerror, b, abandon,
-                      nbytes_in, NULL, nbytes_out, NULL);
-}
+// void BZ_API(BZ2_bzWriteClose)(int *bzerror,
+//                               BZFILE *b,
+//                               int abandon,
+//                               unsigned int *nbytes_in,
+//                               unsigned int *nbytes_out)
+// {
+//    BZ2_bzWriteClose64(bzerror, b, abandon,
+//                       nbytes_in, NULL, nbytes_out, NULL);
+// }
 
 void BZ_API(BZ2_bzWriteClose64)(int *bzerror,
                                 BZFILE *b,
