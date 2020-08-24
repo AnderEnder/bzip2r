@@ -14069,6 +14069,9 @@ extern "C" {
     pub fn BZ2_indexIntoF(arg1: Int32, arg2: *mut Int32) -> Int32;
 }
 extern "C" {
+    pub fn unRLE_obuf_to_output_FAST(arg1: *mut DState) -> u8;
+}
+extern "C" {
     pub fn BZ2_decompress(arg1: *mut DState) -> Int32;
 }
 extern "C" {

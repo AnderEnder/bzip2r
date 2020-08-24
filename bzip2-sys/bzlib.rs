@@ -3,14 +3,15 @@ use std::mem::size_of;
 use std::os::raw::c_void;
 use std::process::exit;
 
-use crate::compress::BZ2_compressBlock;
+use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, DState, EState, BZ_CONFIG_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK,
-    BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK,
-    BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT,
-    BZ_X_MAGIC_1,
+    bz_stream, unRLE_obuf_to_output_FAST, BZ2_decompress, DState, EState, BZ_CONFIG_ERROR,
+    BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_MEM_ERROR, BZ_M_FINISHING,
+    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN,
+    BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_X_BLKHDR_1, BZ_X_IDLE,
+    BZ_X_MAGIC_1, BZ_X_OUTPUT,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -635,7 +636,7 @@ pub extern "C" fn BZ2_bzDecompressInit(strm: *mut bz_stream, verbosity: i32, sma
     return BZ_OK as i32;
 }
 
-fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
+fn unRLE_obuf_to_output_FAST2(s: &mut DState) -> u8 {
     //    UChar k1;
     let strm = unsafe { s.strm.as_mut() }.unwrap();
 
@@ -762,7 +763,7 @@ fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
                     }
                     //  s_state_out_len_eq_one:
 
-                    if (cs_avail_out == 0) {
+                    if cs_avail_out == 0 {
                         c_state_out_len = 1;
                         break 'return_notr;
                     };
@@ -1063,4 +1064,89 @@ fn GET_LL(ll16: &mut [u16], ll4: &mut [u8], i: usize) -> u32 {
 
 fn GET_LL4(ll4: &mut [u8], i: u8) -> u32 {
     ((ll4[(i >> 1) as usize] as u32) >> (i << 2) & 0x4) & 0xF
+}
+
+#[allow(unreachable_code)]
+#[no_mangle]
+pub extern "C" fn BZ2_bzDecompress(strm: *mut bz_stream) -> i32 {
+    //    Bool corrupt;
+    //    DState *s;
+    if strm.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+    let strm = unsafe { strm.as_mut() }.unwrap();
+
+    if strm.state.is_null() {
+        return BZ_PARAM_ERROR;
+    }
+
+    let s = unsafe { (strm.state as *mut DState).as_mut() }.unwrap();
+
+    if s.strm != strm {
+        return BZ_PARAM_ERROR;
+    }
+
+    loop {
+        if s.state == BZ_X_IDLE as i32 {
+            return BZ_SEQUENCE_ERROR;
+        }
+        if s.state == BZ_X_OUTPUT as i32 {
+            let corrupt = if s.smallDecompress > 0 {
+                unRLE_obuf_to_output_SMALL(s)
+            } else {
+                unsafe { unRLE_obuf_to_output_FAST(s) }
+            };
+            if corrupt > 0 {
+                return BZ_DATA_ERROR;
+            }
+            if s.nblock_used == s.save_nblock + 1 && s.state_out_len == 0 {
+                s.calculatedBlockCRC = BZ_FINALISE_CRC(s.calculatedBlockCRC);
+                if s.verbosity >= 3 {
+                    println!(
+                        " {{0x{:08x}, 0x{:08x}}}",
+                        s.storedBlockCRC, s.calculatedBlockCRC
+                    );
+                }
+                if s.verbosity >= 2 {
+                    println!("]");
+                }
+                if s.calculatedBlockCRC != s.storedBlockCRC {
+                    return BZ_DATA_ERROR;
+                }
+                s.calculatedCombinedCRC =
+                    (s.calculatedCombinedCRC << 1) | (s.calculatedCombinedCRC >> 31);
+                s.calculatedCombinedCRC ^= s.calculatedBlockCRC;
+                s.state = BZ_X_BLKHDR_1 as i32;
+            } else {
+                return BZ_OK as i32;
+            }
+        }
+        if s.state >= BZ_X_MAGIC_1 as i32 {
+            let r = unsafe { BZ2_decompress(s) };
+            if r == BZ_STREAM_END as i32 {
+                if s.verbosity >= 3 {
+                    println!(
+                        "\n    combined CRCs: stored = 0x{:08x}, computed = 0x{:08x}",
+                        s.storedCombinedCRC, s.calculatedCombinedCRC,
+                    );
+                }
+                if s.calculatedCombinedCRC != s.storedCombinedCRC {
+                    return BZ_DATA_ERROR;
+                }
+                return r;
+            }
+            if s.state != BZ_X_OUTPUT as i32 {
+                return r;
+            }
+        }
+    }
+
+    asserth(false, 6001);
+
+    // NOTREACHED
+    return 0;
+}
+
+fn BZ_FINALISE_CRC(crcVar: u32) -> u32 {
+    !crcVar
 }
