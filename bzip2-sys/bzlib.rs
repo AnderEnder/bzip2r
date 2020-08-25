@@ -1730,3 +1730,70 @@ pub extern "C" fn BZ2_bzBuffToBuffCompress(
     BZ2_bzCompressEnd(&mut strm);
     return BZ_OK as i32;
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzBuffToBuffDecompress(
+    dest: *mut i8,
+    destLen: *mut u32,
+    source: *mut i8,
+    sourceLen: u32,
+    small: i32,
+    verbosity: i32,
+) -> i32 {
+    if dest.is_null()
+        || destLen.is_null()
+        || source.is_null()
+        || (small != 0 && small != 1)
+        || verbosity < 0
+        || verbosity > 4
+    {
+        return BZ_PARAM_ERROR;
+    }
+
+    let mut strm = bz_stream {
+        bzalloc: None,
+        bzfree: None,
+        opaque: std::ptr::null_mut(),
+        next_in: std::ptr::null_mut(),
+        avail_in: 0,
+        total_in_lo32: 0,
+        total_in_hi32: 0,
+        next_out: std::ptr::null_mut(),
+        avail_out: 0,
+        total_out_lo32: 0,
+        total_out_hi32: 0,
+        state: std::ptr::null_mut(),
+    };
+
+    let ret = BZ2_bzDecompressInit(&mut strm, verbosity, small);
+    if ret != BZ_OK as i32 {
+        return ret;
+    }
+
+    let destLen = unsafe { destLen.as_mut() }.unwrap();
+
+    strm.next_in = source;
+    strm.next_out = dest;
+    strm.avail_in = sourceLen;
+    strm.avail_out = *destLen;
+
+    let ret = BZ2_bzDecompress(&mut strm);
+    if ret == BZ_OK as i32 {
+        if strm.avail_out > 0 {
+            BZ2_bzDecompressEnd(&mut strm);
+            return BZ_UNEXPECTED_EOF;
+        } else {
+            BZ2_bzDecompressEnd(&mut strm);
+            return BZ_OUTBUFF_FULL;
+        };
+    }
+    if ret != BZ_STREAM_END as i32 {
+        BZ2_bzDecompressEnd(&mut strm);
+        return ret;
+    }
+
+    // normal termination
+    *destLen -= strm.avail_out;
+    BZ2_bzDecompressEnd(&mut strm);
+    return BZ_OK as i32;
+}
