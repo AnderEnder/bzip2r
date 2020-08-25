@@ -1911,3 +1911,19 @@ pub extern "C" fn BZ2_bzopen(path: *mut i8, mode: *mut i8) -> *mut BZFILE {
 pub extern "C" fn BZ2_bzdopen(fd: i32, mode: *mut i8) -> *mut BZFILE {
     return bzopen_or_bzdopen(std::ptr::null_mut(), fd, mode, 0);
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzread(b: *mut BZFILE, buf: *mut c_void, len: i32) -> i32 {
+    let bzf = unsafe { (b as *mut bzFile).as_mut() }.unwrap();
+
+    if bzf.lastErr == BZ_STREAM_END as i32 {
+        return 0;
+    }
+    let mut bzerr = 0;
+    let nread = BZ2_bzRead(&mut bzerr, b, buf, len);
+    if bzerr == BZ_OK as i32 || bzerr == BZ_STREAM_END as i32 {
+        return nread;
+    } else {
+        return -1;
+    }
+}

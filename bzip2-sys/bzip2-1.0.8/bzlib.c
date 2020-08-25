@@ -1776,21 +1776,21 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzread)(BZFILE *b, void *buf, int len)
-{
-   int bzerr, nread;
-   if (((bzFile *)b)->lastErr == BZ_STREAM_END)
-      return 0;
-   nread = BZ2_bzRead(&bzerr, b, buf, len);
-   if (bzerr == BZ_OK || bzerr == BZ_STREAM_END)
-   {
-      return nread;
-   }
-   else
-   {
-      return -1;
-   }
-}
+// int BZ_API(BZ2_bzread)(BZFILE *b, void *buf, int len)
+// {
+//    int bzerr, nread;
+//    if (((bzFile *)b)->lastErr == BZ_STREAM_END)
+//       return 0;
+//    nread = BZ2_bzRead(&bzerr, b, buf, len);
+//    if (bzerr == BZ_OK || bzerr == BZ_STREAM_END)
+//    {
+//       return nread;
+//    }
+//    else
+//    {
+//       return -1;
+//    }
+// }
 
 /*---------------------------------------------------*/
 int BZ_API(BZ2_bzwrite)(BZFILE *b, void *buf, int len)
