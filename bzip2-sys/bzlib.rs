@@ -1945,3 +1945,32 @@ pub extern "C" fn BZ2_bzflush(_b: *mut BZFILE) -> i32 {
     // do nothing now...
     return 0;
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzclose(b: *mut BZFILE) {
+    if b.is_null() {
+        return;
+    }
+
+    let bzf = unsafe { (b as *mut bzFile).as_mut() }.unwrap();
+
+    let mut bzerr = 0;
+    let fp = bzf.handle;
+    if bzf.writing > 0 {
+        BZ2_bzWriteClose(&mut bzerr, b, 0, std::ptr::null_mut(), std::ptr::null_mut());
+        if bzerr != BZ_OK as i32 {
+            BZ2_bzWriteClose(
+                std::ptr::null_mut(),
+                b,
+                1,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+        }
+    } else {
+        BZ2_bzReadClose(&mut bzerr, b);
+    }
+    if fp != unsafe { __stdinp } && fp != unsafe { __stdoutp } {
+        unsafe { fclose(fp) };
+    }
+}

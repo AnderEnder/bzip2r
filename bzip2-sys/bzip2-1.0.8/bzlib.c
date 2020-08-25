@@ -1793,56 +1793,56 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzwrite)(BZFILE *b, void *buf, int len)
-{
-   int bzerr;
+// int BZ_API(BZ2_bzwrite)(BZFILE *b, void *buf, int len)
+// {
+//    int bzerr;
 
-   BZ2_bzWrite(&bzerr, b, buf, len);
-   if (bzerr == BZ_OK)
-   {
-      return len;
-   }
-   else
-   {
-      return -1;
-   }
-}
+//    BZ2_bzWrite(&bzerr, b, buf, len);
+//    if (bzerr == BZ_OK)
+//    {
+//       return len;
+//    }
+//    else
+//    {
+//       return -1;
+//    }
+// }
+
+// /*---------------------------------------------------*/
+// int BZ_API(BZ2_bzflush)(BZFILE *b)
+// {
+//    /* do nothing now... */
+//    return 0;
+// }
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzflush)(BZFILE *b)
-{
-   /* do nothing now... */
-   return 0;
-}
+// void BZ_API(BZ2_bzclose)(BZFILE *b)
+// {
+//    int bzerr;
+//    FILE *fp;
 
-/*---------------------------------------------------*/
-void BZ_API(BZ2_bzclose)(BZFILE *b)
-{
-   int bzerr;
-   FILE *fp;
-
-   if (b == NULL)
-   {
-      return;
-   }
-   fp = ((bzFile *)b)->handle;
-   if (((bzFile *)b)->writing)
-   {
-      BZ2_bzWriteClose(&bzerr, b, 0, NULL, NULL);
-      if (bzerr != BZ_OK)
-      {
-         BZ2_bzWriteClose(NULL, b, 1, NULL, NULL);
-      }
-   }
-   else
-   {
-      BZ2_bzReadClose(&bzerr, b);
-   }
-   if (fp != stdin && fp != stdout)
-   {
-      fclose(fp);
-   }
-}
+//    if (b == NULL)
+//    {
+//       return;
+//    }
+//    fp = ((bzFile *)b)->handle;
+//    if (((bzFile *)b)->writing)
+//    {
+//       BZ2_bzWriteClose(&bzerr, b, 0, NULL, NULL);
+//       if (bzerr != BZ_OK)
+//       {
+//          BZ2_bzWriteClose(NULL, b, 1, NULL, NULL);
+//       }
+//    }
+//    else
+//    {
+//       BZ2_bzReadClose(&bzerr, b);
+//    }
+//    if (fp != stdin && fp != stdout)
+//    {
+//       fclose(fp);
+//    }
+// }
 
 /*---------------------------------------------------*/
 /*--
