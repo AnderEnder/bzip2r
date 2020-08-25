@@ -7,12 +7,13 @@ use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, ferror, fflush, fgetc, fread, free, fwrite, malloc, unRLE_obuf_to_output_FAST,
-    ungetc, BZ2_decompress, DState, EState, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH,
-    BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING,
-    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_OUTBUFF_FULL, BZ_PARAM_ERROR,
-    BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT,
-    BZ_UNEXPECTED_EOF, BZ_X_BLKHDR_1, BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF, FILE,
+    bz_stream, fclose, fdopen, ferror, fflush, fgetc, fopen, fread, free, fwrite, malloc,
+    unRLE_obuf_to_output_FAST, ungetc, BZ2_decompress, DState, EState, __stdinp, __stdoutp, BZFILE,
+    BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_HDR_0,
+    BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE,
+    BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_OUTBUFF_FULL, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK,
+    BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_UNEXPECTED_EOF, BZ_X_BLKHDR_1,
+    BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF, FILE,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -1796,4 +1797,107 @@ pub extern "C" fn BZ2_bzBuffToBuffDecompress(
     *destLen -= strm.avail_out;
     BZ2_bzDecompressEnd(&mut strm);
     return BZ_OK as i32;
+}
+
+#[no_mangle]
+pub extern "C" fn bzopen_or_bzdopen(
+    // no use when bzdopen
+    path: *mut i8,
+    // no use when bzdopen
+    fd: i32,
+    mode: *mut i8,
+    // bzopen: 0, bzdopen:1
+    open_mode: i32,
+) -> *mut BZFILE {
+    let mut bzerr = 0;
+    let mut unused = [0_i8; BZ_MAX_UNUSED as usize];
+    let mut blockSize100k = 9_i32;
+    let mut writing = 0;
+    let mut mode2 = "".to_owned();
+    let verbosity = 0_i32;
+    let workFactor = 30_i32;
+    let mut smallMode = 0;
+    let nUnused = 0;
+
+    if mode.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    // let mut mode = unsafe { mode.as_ref() }.unwrap();
+    let mode = unsafe { CString::from_raw(mode) };
+
+    mode.as_bytes().iter().for_each(|c| match c {
+        b'r' => {
+            writing = 0;
+        }
+        b'w' => {
+            writing = 1;
+        }
+        b's' => {
+            smallMode = 1;
+        }
+        _ => {
+            if char::from(*c).is_digit(10) {
+                blockSize100k = *c as i32 - BZ_HDR_0 as i32;
+            }
+        }
+    });
+
+    let m = if writing > 0 { 'w' } else { 'r' };
+    mode2.push(m);
+    // binary mode
+    mode2.push('b');
+
+    let mode2 = CString::new(mode2).unwrap();
+
+    let fp = if open_mode == 0 {
+        if path.is_null() || unsafe { CString::from_raw(path) } == CString::new("").unwrap() {
+            if writing > 0 {
+                unsafe { __stdoutp }
+            } else {
+                unsafe { __stdinp }
+            }
+        // SET_BINARY_MODE(fp);
+        } else {
+            unsafe { fopen(path, mode2.as_ptr()) }
+        }
+    } else {
+        // #ifdef BZ_STRICT_ANSI
+        //       fp = NULL;
+        // #else
+        //       fp = fdopen(fd, mode2);
+        // #endif
+        unsafe { fdopen(fd, mode2.as_ptr()) }
+    };
+    if fp.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let bzfp = if writing > 0 {
+        // Guard against total chaos and anarchy -- JRS
+        if blockSize100k < 1 {
+            blockSize100k = 1;
+        }
+        if blockSize100k > 9 {
+            blockSize100k = 9;
+        }
+        BZ2_bzWriteOpen(&mut bzerr, fp, blockSize100k, verbosity, workFactor)
+    } else {
+        BZ2_bzReadOpen(
+            &mut bzerr,
+            fp,
+            verbosity,
+            smallMode,
+            unused.as_mut_ptr() as *mut c_void,
+            nUnused,
+        )
+    };
+
+    if bzfp.is_null() {
+        if unsafe { fp != __stdinp } && unsafe { fp != __stdoutp } {
+            unsafe { fclose(fp) };
+        }
+        return std::ptr::null_mut();
+    }
+    return bzfp;
 }
