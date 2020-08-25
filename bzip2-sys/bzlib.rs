@@ -1525,3 +1525,26 @@ pub extern "C" fn BZ2_bzReadOpen(
     bzf.initialisedOk = TRUE;
     return bzf_raw as *mut BZFILE;
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzReadClose(bzerror: *mut i32, b: *mut BZFILE) {
+    let bzf_raw = b as *mut bzFile;
+
+    BZ_SETERR(bzf_raw, bzerror, BZ_OK as i32);
+    if bzf_raw.is_null() {
+        BZ_SETERR(bzf_raw, bzerror, BZ_OK as i32);
+        return;
+    };
+
+    let bzf = unsafe { bzf_raw.as_mut() }.unwrap();
+
+    if bzf.writing > 0 {
+        BZ_SETERR(bzf_raw, bzerror, BZ_SEQUENCE_ERROR);
+        return;
+    };
+
+    if bzf.initialisedOk > 0 {
+        BZ2_bzDecompressEnd(&mut bzf.strm);
+    }
+    unsafe { free(bzf_raw as *mut c_void) };
+}

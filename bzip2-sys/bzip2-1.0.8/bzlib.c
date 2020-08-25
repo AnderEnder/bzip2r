@@ -1385,27 +1385,27 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-void BZ_API(BZ2_bzReadClose)(int *bzerror, BZFILE *b)
-{
-   bzFile *bzf = (bzFile *)b;
+// void BZ_API(BZ2_bzReadClose)(int *bzerror, BZFILE *b)
+// {
+//    bzFile *bzf = (bzFile *)b;
 
-   BZ_SETERR(BZ_OK);
-   if (bzf == NULL)
-   {
-      BZ_SETERR(BZ_OK);
-      return;
-   };
+//    BZ_SETERR(BZ_OK);
+//    if (bzf == NULL)
+//    {
+//       BZ_SETERR(BZ_OK);
+//       return;
+//    };
 
-   if (bzf->writing)
-   {
-      BZ_SETERR(BZ_SEQUENCE_ERROR);
-      return;
-   };
+//    if (bzf->writing)
+//    {
+//       BZ_SETERR(BZ_SEQUENCE_ERROR);
+//       return;
+//    };
 
-   if (bzf->initialisedOk)
-      (void)BZ2_bzDecompressEnd(&(bzf->strm));
-   free(bzf);
-}
+//    if (bzf->initialisedOk)
+//       (void)BZ2_bzDecompressEnd(&(bzf->strm));
+//    free(bzf);
+// }
 
 /*---------------------------------------------------*/
 int BZ_API(BZ2_bzRead)(int *bzerror,
