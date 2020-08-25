@@ -1901,3 +1901,13 @@ pub extern "C" fn bzopen_or_bzdopen(
     }
     return bzfp;
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzopen(path: *mut i8, mode: *mut i8) -> *mut BZFILE {
+    return bzopen_or_bzdopen(path, -1, mode, 0);
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzdopen(fd: i32, mode: *mut i8) -> *mut BZFILE {
+    return bzopen_or_bzdopen(std::ptr::null_mut(), fd, mode, 0);
+}

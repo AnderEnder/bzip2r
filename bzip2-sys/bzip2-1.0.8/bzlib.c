@@ -1762,18 +1762,18 @@ typedef struct
       ex) bzopen("file","w9")
       case path="" or NULL => use stdin or stdout.
 --*/
-BZFILE *BZ_API(BZ2_bzopen)(const char *path,
-                           const char *mode)
-{
-   return bzopen_or_bzdopen(path, -1, mode, /*bzopen*/ 0);
-}
+// BZFILE *BZ_API(BZ2_bzopen)(const char *path,
+//                            const char *mode)
+// {
+//    return bzopen_or_bzdopen(path, -1, mode, /*bzopen*/ 0);
+// }
 
-/*---------------------------------------------------*/
-BZFILE *BZ_API(BZ2_bzdopen)(int fd,
-                            const char *mode)
-{
-   return bzopen_or_bzdopen(NULL, fd, mode, /*bzdopen*/ 1);
-}
+// /*---------------------------------------------------*/
+// BZFILE *BZ_API(BZ2_bzdopen)(int fd,
+//                             const char *mode)
+// {
+//    return bzopen_or_bzdopen(NULL, fd, mode, /*bzdopen*/ 1);
+// }
 
 /*---------------------------------------------------*/
 int BZ_API(BZ2_bzread)(BZFILE *b, void *buf, int len)
