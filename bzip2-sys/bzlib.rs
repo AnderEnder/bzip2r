@@ -10,9 +10,9 @@ use crate::private_ffi::{
     bz_stream, ferror, fflush, fgetc, fread, free, fwrite, malloc, unRLE_obuf_to_output_FAST,
     ungetc, BZ2_decompress, DState, EState, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH,
     BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING,
-    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_PARAM_ERROR, BZ_RUN,
-    BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_UNEXPECTED_EOF,
-    BZ_X_BLKHDR_1, BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF, FILE,
+    BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_OUTBUFF_FULL, BZ_PARAM_ERROR,
+    BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT,
+    BZ_UNEXPECTED_EOF, BZ_X_BLKHDR_1, BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF, FILE,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -1658,4 +1658,75 @@ pub extern "C" fn BZ2_bzReadGetUnused(
     unsafe { *nUnused = bzf.strm.avail_in as i32 };
     let unused = unsafe { unused.as_mut() }.unwrap();
     *unused = bzf.strm.next_in as *mut c_void;
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzBuffToBuffCompress(
+    dest: *mut i8,
+    destLen: *mut u32,
+    source: *mut i8,
+    sourceLen: u32,
+    blockSize100k: i32,
+    verbosity: i32,
+    mut workFactor: i32,
+) -> i32 {
+    if dest.is_null()
+        || destLen.is_null()
+        || source.is_null()
+        || blockSize100k < 1
+        || blockSize100k > 9
+        || verbosity < 0
+        || verbosity > 4
+        || workFactor < 0
+        || workFactor > 250
+    {
+        return BZ_PARAM_ERROR;
+    }
+
+    if workFactor == 0 {
+        workFactor = 30;
+    }
+
+    let mut strm = bz_stream {
+        bzalloc: None,
+        bzfree: None,
+        opaque: std::ptr::null_mut(),
+        next_in: std::ptr::null_mut(),
+        avail_in: 0,
+        total_in_lo32: 0,
+        total_in_hi32: 0,
+        next_out: std::ptr::null_mut(),
+        avail_out: 0,
+        total_out_lo32: 0,
+        total_out_hi32: 0,
+        state: std::ptr::null_mut(),
+    };
+
+    let ret = BZ2_bzCompressInit(&mut strm, blockSize100k, verbosity, workFactor);
+    if ret != BZ_OK as i32 {
+        return ret;
+    }
+
+    let destLen = unsafe { destLen.as_mut() }.unwrap();
+
+    strm.next_in = source;
+    strm.next_out = dest;
+    strm.avail_in = sourceLen;
+    strm.avail_out = *destLen;
+
+    let ret = BZ2_bzCompress(&mut strm, BZ_FINISH as i32);
+
+    if ret == BZ_FINISH_OK as i32 {
+        BZ2_bzCompressEnd(&mut strm);
+        return BZ_OUTBUFF_FULL;
+    }
+    if ret != BZ_STREAM_END as i32 {
+        BZ2_bzCompressEnd(&mut strm);
+        return ret;
+    }
+
+    // normal termination
+    *destLen -= strm.avail_out;
+    BZ2_bzCompressEnd(&mut strm);
+    return BZ_OK as i32;
 }
