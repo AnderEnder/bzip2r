@@ -1316,73 +1316,73 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-BZFILE *BZ_API(BZ2_bzReadOpen)(int *bzerror,
-                               FILE *f,
-                               int verbosity,
-                               int small,
-                               void *unused,
-                               int nUnused)
-{
-   bzFile *bzf = NULL;
-   int ret;
+// BZFILE *BZ_API(BZ2_bzReadOpen)(int *bzerror,
+//                                FILE *f,
+//                                int verbosity,
+//                                int small,
+//                                void *unused,
+//                                int nUnused)
+// {
+//    bzFile *bzf = NULL;
+//    int ret;
 
-   BZ_SETERR(BZ_OK);
+//    BZ_SETERR(BZ_OK);
 
-   if (f == NULL ||
-       (small != 0 && small != 1) ||
-       (verbosity < 0 || verbosity > 4) ||
-       (unused == NULL && nUnused != 0) ||
-       (unused != NULL && (nUnused < 0 || nUnused > BZ_MAX_UNUSED)))
-   {
-      BZ_SETERR(BZ_PARAM_ERROR);
-      return NULL;
-   };
+//    if (f == NULL ||
+//        (small != 0 && small != 1) ||
+//        (verbosity < 0 || verbosity > 4) ||
+//        (unused == NULL && nUnused != 0) ||
+//        (unused != NULL && (nUnused < 0 || nUnused > BZ_MAX_UNUSED)))
+//    {
+//       BZ_SETERR(BZ_PARAM_ERROR);
+//       return NULL;
+//    };
 
-   if (ferror(f))
-   {
-      BZ_SETERR(BZ_IO_ERROR);
-      return NULL;
-   };
+//    if (ferror(f))
+//    {
+//       BZ_SETERR(BZ_IO_ERROR);
+//       return NULL;
+//    };
 
-   bzf = malloc(sizeof(bzFile));
-   if (bzf == NULL)
-   {
-      BZ_SETERR(BZ_MEM_ERROR);
-      return NULL;
-   };
+//    bzf = malloc(sizeof(bzFile));
+//    if (bzf == NULL)
+//    {
+//       BZ_SETERR(BZ_MEM_ERROR);
+//       return NULL;
+//    };
 
-   BZ_SETERR(BZ_OK);
+//    BZ_SETERR(BZ_OK);
 
-   bzf->initialisedOk = False;
-   bzf->handle = f;
-   bzf->bufN = 0;
-   bzf->writing = False;
-   bzf->strm.bzalloc = NULL;
-   bzf->strm.bzfree = NULL;
-   bzf->strm.opaque = NULL;
+//    bzf->initialisedOk = False;
+//    bzf->handle = f;
+//    bzf->bufN = 0;
+//    bzf->writing = False;
+//    bzf->strm.bzalloc = NULL;
+//    bzf->strm.bzfree = NULL;
+//    bzf->strm.opaque = NULL;
 
-   while (nUnused > 0)
-   {
-      bzf->buf[bzf->bufN] = *((UChar *)(unused));
-      bzf->bufN++;
-      unused = ((void *)(1 + ((UChar *)(unused))));
-      nUnused--;
-   }
+//    while (nUnused > 0)
+//    {
+//       bzf->buf[bzf->bufN] = *((UChar *)(unused));
+//       bzf->bufN++;
+//       unused = ((void *)(1 + ((UChar *)(unused))));
+//       nUnused--;
+//    }
 
-   ret = BZ2_bzDecompressInit(&(bzf->strm), verbosity, small);
-   if (ret != BZ_OK)
-   {
-      BZ_SETERR(ret);
-      free(bzf);
-      return NULL;
-   };
+//    ret = BZ2_bzDecompressInit(&(bzf->strm), verbosity, small);
+//    if (ret != BZ_OK)
+//    {
+//       BZ_SETERR(ret);
+//       free(bzf);
+//       return NULL;
+//    };
 
-   bzf->strm.avail_in = bzf->bufN;
-   bzf->strm.next_in = bzf->buf;
+//    bzf->strm.avail_in = bzf->bufN;
+//    bzf->strm.next_in = bzf->buf;
 
-   bzf->initialisedOk = True;
-   return bzf;
-}
+//    bzf->initialisedOk = True;
+//    return bzf;
+// }
 
 /*---------------------------------------------------*/
 void BZ_API(BZ2_bzReadClose)(int *bzerror, BZFILE *b)
