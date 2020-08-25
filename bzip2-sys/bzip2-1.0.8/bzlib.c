@@ -1493,32 +1493,32 @@ typedef struct
 // }
 
 /*---------------------------------------------------*/
-void BZ_API(BZ2_bzReadGetUnused)(int *bzerror,
-                                 BZFILE *b,
-                                 void **unused,
-                                 int *nUnused)
-{
-   bzFile *bzf = (bzFile *)b;
-   if (bzf == NULL)
-   {
-      BZ_SETERR(BZ_PARAM_ERROR);
-      return;
-   };
-   if (bzf->lastErr != BZ_STREAM_END)
-   {
-      BZ_SETERR(BZ_SEQUENCE_ERROR);
-      return;
-   };
-   if (unused == NULL || nUnused == NULL)
-   {
-      BZ_SETERR(BZ_PARAM_ERROR);
-      return;
-   };
+// void BZ_API(BZ2_bzReadGetUnused)(int *bzerror,
+//                                  BZFILE *b,
+//                                  void **unused,
+//                                  int *nUnused)
+// {
+//    bzFile *bzf = (bzFile *)b;
+//    if (bzf == NULL)
+//    {
+//       BZ_SETERR(BZ_PARAM_ERROR);
+//       return;
+//    };
+//    if (bzf->lastErr != BZ_STREAM_END)
+//    {
+//       BZ_SETERR(BZ_SEQUENCE_ERROR);
+//       return;
+//    };
+//    if (unused == NULL || nUnused == NULL)
+//    {
+//       BZ_SETERR(BZ_PARAM_ERROR);
+//       return;
+//    };
 
-   BZ_SETERR(BZ_OK);
-   *nUnused = bzf->strm.avail_in;
-   *unused = bzf->strm.next_in;
-}
+//    BZ_SETERR(BZ_OK);
+//    *nUnused = bzf->strm.avail_in;
+//    *unused = bzf->strm.next_in;
+// }
 #endif
 
 /*---------------------------------------------------*/

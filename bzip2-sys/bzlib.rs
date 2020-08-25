@@ -1629,3 +1629,33 @@ pub extern "C" fn BZ2_bzRead(bzerror: *mut i32, b: *mut BZFILE, buf: *mut c_void
     // not reached
     return 0;
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzReadGetUnused(
+    bzerror: *mut i32,
+    b: *mut BZFILE,
+    unused: *mut *mut c_void,
+    nUnused: *mut i32,
+) {
+    let bzf_raw = b as *mut bzFile;
+
+    if bzf_raw.is_null() {
+        BZ_SETERR(bzf_raw, bzerror, BZ_PARAM_ERROR);
+        return;
+    };
+    let bzf = unsafe { bzf_raw.as_mut() }.unwrap();
+
+    if bzf.lastErr != BZ_STREAM_END as i32 {
+        BZ_SETERR(bzf_raw, bzerror, BZ_SEQUENCE_ERROR);
+        return;
+    };
+    if unused.is_null() || nUnused.is_null() {
+        BZ_SETERR(bzf_raw, bzerror, BZ_PARAM_ERROR);
+        return;
+    };
+
+    BZ_SETERR(bzf_raw, bzerror, BZ_OK as i32);
+    unsafe { *nUnused = bzf.strm.avail_in as i32 };
+    let unused = unsafe { unused.as_mut() }.unwrap();
+    *unused = bzf.strm.next_in as *mut c_void;
+}
