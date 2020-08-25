@@ -1974,3 +1974,36 @@ pub extern "C" fn BZ2_bzclose(b: *mut BZFILE) {
         unsafe { fclose(fp) };
     }
 }
+const bzerrorstrings: [&str; 16] = [
+    "OK\0",
+    "SEQUENCE_ERROR\0",
+    "PARAM_ERROR\0",
+    "MEM_ERROR\0",
+    "DATA_ERROR\0",
+    "DATA_ERROR_MAGIC\0",
+    "IO_ERROR\0",
+    "UNEXPECTED_EOF\0",
+    "OUTBUFF_FULL\0",
+    "CONFIG_ERROR\0",
+    // for future
+    "???\0",
+    "???\0",
+    "???\0",
+    "???\0",
+    "???\0",
+    "???\0",
+];
+
+fn BZ2_bzerror(b: *mut BZFILE, errnum: *mut i32) -> *const i8 {
+    let bzf = unsafe { (b as *mut bzFile).as_mut() }.unwrap();
+
+    let mut err = bzf.lastErr;
+
+    if err > 0 {
+        err = 0;
+    }
+
+    let errnum = unsafe { errnum.as_mut() }.unwrap();
+    *errnum = err;
+    return bzerrorstrings[(err * -1) as usize].as_bytes().as_ptr() as *const i8;
+}

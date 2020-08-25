@@ -1848,29 +1848,29 @@ typedef struct
 /*--
    return last error code 
 --*/
-static const char *bzerrorstrings[] = {
-    "OK", "SEQUENCE_ERROR", "PARAM_ERROR", "MEM_ERROR", "DATA_ERROR", "DATA_ERROR_MAGIC", "IO_ERROR", "UNEXPECTED_EOF", "OUTBUFF_FULL", "CONFIG_ERROR", "???" /* for future */
-    ,
-    "???" /* for future */
-    ,
-    "???" /* for future */
-    ,
-    "???" /* for future */
-    ,
-    "???" /* for future */
-    ,
-    "???" /* for future */
-};
+// static const char *bzerrorstrings[] = {
+//     "OK", "SEQUENCE_ERROR", "PARAM_ERROR", "MEM_ERROR", "DATA_ERROR", "DATA_ERROR_MAGIC", "IO_ERROR", "UNEXPECTED_EOF", "OUTBUFF_FULL", "CONFIG_ERROR", "???" /* for future */
+//     ,
+//     "???" /* for future */
+//     ,
+//     "???" /* for future */
+//     ,
+//     "???" /* for future */
+//     ,
+//     "???" /* for future */
+//     ,
+//     "???" /* for future */
+// };
 
-const char *BZ_API(BZ2_bzerror)(BZFILE *b, int *errnum)
-{
-   int err = ((bzFile *)b)->lastErr;
+// const char *BZ_API(BZ2_bzerror)(BZFILE *b, int *errnum)
+// {
+//    int err = ((bzFile *)b)->lastErr;
 
-   if (err > 0)
-      err = 0;
-   *errnum = err;
-   return bzerrorstrings[err * -1];
-}
+//    if (err > 0)
+//       err = 0;
+//    *errnum = err;
+//    return bzerrorstrings[err * -1];
+// }
 #endif
 
 /*-------------------------------------------------------------*/
