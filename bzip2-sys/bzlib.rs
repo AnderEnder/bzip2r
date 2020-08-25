@@ -1927,3 +1927,21 @@ pub extern "C" fn BZ2_bzread(b: *mut BZFILE, buf: *mut c_void, len: i32) -> i32 
         return -1;
     }
 }
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzwrite(b: *mut BZFILE, buf: *mut c_void, len: i32) -> i32 {
+    let mut bzerr = 0;
+
+    BZ2_bzWrite(&mut bzerr, b, buf, len);
+    if bzerr == BZ_OK as i32 {
+        return len;
+    } else {
+        return -1;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn BZ2_bzflush(_b: *mut BZFILE) -> i32 {
+    // do nothing now...
+    return 0;
+}
