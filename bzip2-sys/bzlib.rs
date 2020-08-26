@@ -7,13 +7,13 @@ use crate::compress::{asserth, BZ2_compressBlock};
 use crate::crctable::BZ2_crc32Table;
 use crate::decompress::{BZ_GET_FAST, BZ_RAND_UPD_MASK};
 use crate::private_ffi::{
-    bz_stream, fclose, fdopen, ferror, fflush, fgetc, fopen, fread, free, fwrite, malloc,
-    unRLE_obuf_to_output_FAST, ungetc, BZ2_decompress, DState, EState, __stdinp, __stdoutp, BZFILE,
-    BZ_CONFIG_ERROR, BZ_DATA_ERROR, BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_HDR_0,
-    BZ_IO_ERROR, BZ_MAX_UNUSED, BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE,
-    BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK, BZ_OUTBUFF_FULL, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK,
-    BZ_SEQUENCE_ERROR, BZ_STREAM_END, BZ_S_INPUT, BZ_S_OUTPUT, BZ_UNEXPECTED_EOF, BZ_X_BLKHDR_1,
-    BZ_X_IDLE, BZ_X_MAGIC_1, BZ_X_OUTPUT, EOF, FILE,
+    bz_stream, fclose, fdopen, ferror, fflush, fgetc, fopen, fread, free, fwrite, malloc, ungetc,
+    BZ2_decompress, DState, EState, __stdinp, __stdoutp, BZFILE, BZ_CONFIG_ERROR, BZ_DATA_ERROR,
+    BZ_FINISH, BZ_FINISH_OK, BZ_FLUSH, BZ_FLUSH_OK, BZ_HDR_0, BZ_IO_ERROR, BZ_MAX_UNUSED,
+    BZ_MEM_ERROR, BZ_M_FINISHING, BZ_M_FLUSHING, BZ_M_IDLE, BZ_M_RUNNING, BZ_N_OVERSHOOT, BZ_OK,
+    BZ_OUTBUFF_FULL, BZ_PARAM_ERROR, BZ_RUN, BZ_RUN_OK, BZ_SEQUENCE_ERROR, BZ_STREAM_END,
+    BZ_S_INPUT, BZ_S_OUTPUT, BZ_UNEXPECTED_EOF, BZ_X_BLKHDR_1, BZ_X_IDLE, BZ_X_MAGIC_1,
+    BZ_X_OUTPUT, EOF, FILE,
 };
 use std::slice::from_raw_parts_mut;
 
@@ -649,8 +649,9 @@ pub extern "C" fn BZ2_bzDecompressInit(strm: *mut bz_stream, verbosity: i32, sma
     return BZ_OK as i32;
 }
 
-fn unRLE_obuf_to_output_FAST2(s: &mut DState) -> u8 {
-    //    UChar k1;
+#[allow(unreachable_code)]
+#[no_mangle]
+pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
     let strm = unsafe { s.strm.as_mut() }.unwrap();
 
     if s.blockRandomised > 0 {
@@ -745,115 +746,137 @@ fn unRLE_obuf_to_output_FAST2(s: &mut DState) -> u8 {
         let mut c_nblock_used = s.nblock_used as i32;
         let mut c_k0 = s.k0 as i32;
         let c_tt = s.tt as *mut u32;
-        let c_tt_safe = unsafe { from_raw_parts_mut(c_tt, s.tPos as usize + 1) };
+        let c_tt_safe = unsafe { from_raw_parts_mut(c_tt, (s.blockSize100k * 100000) as usize) };
         let mut c_tPos = s.tPos as u32;
-        let cs_next_out = strm.next_out as *mut i8;
+
+        // let cs_next_out = unsafe { (strm.next_out as *mut i8).as_mut() }.unwrap();
+        let mut cs_next_out_iter =
+            unsafe { from_raw_parts_mut(strm.next_out, strm.avail_out as usize) }.iter_mut();
+        let mut cs_next_out = cs_next_out_iter.next();
         let mut cs_avail_out = strm.avail_out as u32;
         let ro_blockSize100k = s.blockSize100k as i32;
         // end restore
 
         let avail_out_INIT = cs_avail_out;
         let s_save_nblockPP = s.save_nblock + 1;
-        //   unsigned int total_out_lo32_old;
 
+        let mut k1 = 0;
+        let mut skip = false;
         'return_notr: loop {
-            loop {
-                // try to finish existing run
-                if c_state_out_len > 0 {
-                    loop {
-                        if cs_avail_out == 0 {
-                            break 'return_notr;
-                        }
-                        if c_state_out_len == 1 {
-                            break;
-                        }
-                        unsafe { *cs_next_out = c_state_out_ch as i8 };
-                        c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
-
-                        c_state_out_len -= 1;
-                        unsafe { *cs_next_out += 1 };
-                        cs_avail_out -= 1;
-                    }
-                    //  s_state_out_len_eq_one:
-
+            // try to finish existing run
+            if c_state_out_len > 0 || skip {
+                while !skip {
                     if cs_avail_out == 0 {
-                        c_state_out_len = 1;
                         break 'return_notr;
-                    };
-                    unsafe { *cs_next_out = c_state_out_ch as i8 };
+                    }
+                    if c_state_out_len == 1 {
+                        break;
+                    }
+                    *(cs_next_out.unwrap()) = c_state_out_ch as i8;
                     c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
 
-                    unsafe { *cs_next_out += 1 };
+                    c_state_out_len -= 1;
+                    cs_next_out = cs_next_out_iter.next();
                     cs_avail_out -= 1;
                 }
-                // Only caused by corrupt data stream?
-                if c_nblock_used > s_save_nblockPP {
-                    return TRUE;
-                }
-
-                // can a new run be started?
-                if c_nblock_used == s_save_nblockPP {
-                    c_state_out_len = 0;
+                skip = false;
+                // s_state_out_len_eq_one
+                if cs_avail_out == 0 {
+                    c_state_out_len = 1;
                     break 'return_notr;
                 };
-                c_state_out_ch = c_k0 as u8;
+                *(cs_next_out.unwrap()) = c_state_out_ch as i8;
+                c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
 
-                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
-                let mut k1 = kt;
-                c_tPos = tPos;
+                cs_next_out = cs_next_out_iter.next();
+                cs_avail_out -= 1;
+            }
+            // Only caused by corrupt data stream?
+            if c_nblock_used > s_save_nblockPP {
+                return TRUE;
+            }
 
-                c_nblock_used += 1;
-                if k1 != c_k0 {
-                    c_k0 = k1;
-                    // goto s_state_out_len_eq_one;
-                };
-                if c_nblock_used == s_save_nblockPP {
-                    // goto s_state_out_len_eq_one;
-                }
+            // can a new run be started?
+            if c_nblock_used == s_save_nblockPP {
+                c_state_out_len = 0;
+                break 'return_notr;
+            };
 
-                c_state_out_len = 2;
+            c_state_out_ch = c_k0 as u8;
 
-                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+            // ???
+            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
                 k1 = kt;
                 c_tPos = tPos;
+            } else {
+                return TRUE;
+            }
 
-                c_nblock_used += 1;
-                if c_nblock_used == s_save_nblockPP {
-                    continue;
-                }
-                if k1 != c_k0 {
-                    c_k0 = k1;
-                    continue;
-                };
+            c_nblock_used += 1;
+            if k1 != c_k0 {
+                c_k0 = k1;
+                skip = true;
+                continue;
+            };
+            if c_nblock_used == s_save_nblockPP {
+                skip = true;
+                continue;
+            }
 
-                c_state_out_len = 3;
+            c_state_out_len = 2;
 
-                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
                 k1 = kt;
                 c_tPos = tPos;
+            } else {
+                return TRUE;
+            }
 
-                c_nblock_used += 1;
-                if c_nblock_used == s_save_nblockPP {
-                    continue;
-                }
-                if k1 as i32 != c_k0 {
-                    c_k0 = k1 as i32;
-                    continue;
-                };
+            c_nblock_used += 1;
+            if c_nblock_used == s_save_nblockPP {
+                continue;
+            }
+            if k1 != c_k0 {
+                c_k0 = k1;
+                continue;
+            };
 
-                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+            c_state_out_len = 3;
+
+            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
                 k1 = kt;
                 c_tPos = tPos;
+            } else {
+                return TRUE;
+            }
 
-                c_nblock_used += 1;
-                c_state_out_len = k1 as i32 + 4;
+            c_nblock_used += 1;
+            if c_nblock_used == s_save_nblockPP {
+                continue;
+            }
+            if k1 != c_k0 {
+                c_k0 = k1 as i32;
+                continue;
+            };
 
-                let (kt, tPos) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos);
+            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
+                k1 = kt;
+                c_tPos = tPos;
+            } else {
+                return TRUE;
+            }
+
+            c_nblock_used += 1;
+            c_state_out_len = k1 as i32 + 4;
+
+            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
                 c_k0 = kt;
                 c_tPos = tPos;
-                c_nblock_used += 1;
+            } else {
+                return TRUE;
             }
-            break;
+
+            c_nblock_used += 1;
         }
 
         //    return_notr:
@@ -871,22 +894,27 @@ fn unRLE_obuf_to_output_FAST2(s: &mut DState) -> u8 {
         s.k0 = c_k0;
         s.tt = c_tt;
         s.tPos = c_tPos;
-        unsafe { *strm.next_out = cs_next_out as i8 };
+        if let Some(cs_next_out) = cs_next_out {
+            strm.next_out = cs_next_out;
+        } else {
+            // memory leak?
+            strm.next_out = std::ptr::null_mut();
+        }
         strm.avail_out = cs_avail_out;
         // end save
     }
     return FALSE;
 }
 
-fn BZ_GET_FAST_C(c_tt: &mut [u32], ro_blockSize100k: u32, c_tPos: u32) -> (i32, u32) {
+fn BZ_GET_FAST_C(c_tt: &mut [u32], ro_blockSize100k: u32, c_tPos: u32) -> Option<(i32, u32)> {
     /* c_tPos is unsigned, hence test < 0 is pointless. */
     if c_tPos >= 100000 * ro_blockSize100k {
-        // return TRUE;
+        return None;
     }
     let mut l_tPos = c_tt[c_tPos as usize];
     let cccc = (l_tPos & 0xff) as i32;
     l_tPos >>= 8;
-    (cccc, l_tPos)
+    Some((cccc, l_tPos))
 }
 
 #[no_mangle]
