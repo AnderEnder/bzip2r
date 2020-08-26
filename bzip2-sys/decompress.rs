@@ -1010,9 +1010,9 @@ pub fn BZ_GET_FAST(s: &mut DState) -> i32 {
 fn dc_codding_tables(s: &mut DState, nGroups: usize, alphaSize: i32, next: bool, mut curr: i32) {
     for t in 0..nGroups {
         // GET_BITS(BZ_X_CODING_1, curr, 5);
-        let mut uc = 0;
+        let uc = 0;
         if next || s.state == BZ_X_CODING_1 as i32 {
-            let curr = get_bits(s, 5);
+            let _curr = get_bits(s, 5);
         }
         for i in 0..alphaSize {
             loop {

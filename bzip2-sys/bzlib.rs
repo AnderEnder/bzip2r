@@ -760,7 +760,7 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
         let avail_out_INIT = cs_avail_out;
         let s_save_nblockPP = s.save_nblock + 1;
 
-        let mut k1 = 0;
+        // let mut k1 = 0;
         let mut skip = false;
         'return_notr: loop {
             // try to finish existing run
@@ -805,12 +805,12 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
             c_state_out_ch = c_k0 as u8;
 
             // ???
-            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
-                k1 = kt;
-                c_tPos = tPos;
-            } else {
-                return TRUE;
-            }
+            let k1 =
+                if let Some(kt) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, &mut c_tPos) {
+                    kt
+                } else {
+                    return TRUE;
+                };
 
             c_nblock_used += 1;
             if k1 != c_k0 {
@@ -825,12 +825,12 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
 
             c_state_out_len = 2;
 
-            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
-                k1 = kt;
-                c_tPos = tPos;
-            } else {
-                return TRUE;
-            }
+            let k1 =
+                if let Some(kt) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, &mut c_tPos) {
+                    kt
+                } else {
+                    return TRUE;
+                };
 
             c_nblock_used += 1;
             if c_nblock_used == s_save_nblockPP {
@@ -843,12 +843,12 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
 
             c_state_out_len = 3;
 
-            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
-                k1 = kt;
-                c_tPos = tPos;
-            } else {
-                return TRUE;
-            }
+            let k1 =
+                if let Some(kt) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, &mut c_tPos) {
+                    kt
+                } else {
+                    return TRUE;
+                };
 
             c_nblock_used += 1;
             if c_nblock_used == s_save_nblockPP {
@@ -859,22 +859,22 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
                 continue;
             };
 
-            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
-                k1 = kt;
-                c_tPos = tPos;
-            } else {
-                return TRUE;
-            }
+            let k1 =
+                if let Some(kt) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, &mut c_tPos) {
+                    kt
+                } else {
+                    return TRUE;
+                };
 
             c_nblock_used += 1;
             c_state_out_len = k1 as i32 + 4;
 
-            if let Some((kt, tPos)) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, c_tPos) {
-                c_k0 = kt;
-                c_tPos = tPos;
+            c_k0 = if let Some(kt) = BZ_GET_FAST_C(c_tt_safe, ro_blockSize100k as u32, &mut c_tPos)
+            {
+                kt
             } else {
                 return TRUE;
-            }
+            };
 
             c_nblock_used += 1;
         }
@@ -906,22 +906,22 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
     return FALSE;
 }
 
-fn BZ_GET_FAST_C(c_tt: &mut [u32], ro_blockSize100k: u32, c_tPos: u32) -> Option<(i32, u32)> {
+fn BZ_GET_FAST_C(c_tt: &mut [u32], ro_blockSize100k: u32, c_tPos: &mut u32) -> Option<i32> {
     /* c_tPos is unsigned, hence test < 0 is pointless. */
-    if c_tPos >= 100000 * ro_blockSize100k {
+    if *c_tPos >= 100000 * ro_blockSize100k {
         return None;
     }
-    let mut l_tPos = c_tt[c_tPos as usize];
-    let cccc = (l_tPos & 0xff) as i32;
-    l_tPos >>= 8;
-    Some((cccc, l_tPos))
+    *c_tPos = c_tt[*c_tPos as usize];
+    let cccc = (*c_tPos & 0xff) as i32;
+    *c_tPos >>= 8;
+    Some(cccc)
 }
 
 #[no_mangle]
 pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
     //    UChar k1;
     let strm = unsafe { s.strm.as_mut() }.unwrap();
-    let mut k1 = 0;
+    // let mut k1 = 0;
     if s.blockRandomised > 0 {
         loop {
             // try to finish existing run
@@ -955,7 +955,7 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
 
             s.state_out_len = 1;
             s.state_out_ch = s.k0 as u8;
-            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+            let mut k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
 
             BZ_RAND_UPD_MASK(s);
             k1 ^= if s.rNToGo == 1 { 1 } else { 0 };
@@ -1041,7 +1041,7 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
 
             s.state_out_len = 1;
             s.state_out_ch = s.k0 as u8;
-            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+            let k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
 
             s.nblock_used += 1;
             if s.nblock_used == s.save_nblock + 1 {
@@ -1053,7 +1053,7 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
             };
 
             s.state_out_len = 2;
-            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+            let k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
 
             s.nblock_used += 1;
             if s.nblock_used == s.save_nblock + 1 {
@@ -1065,7 +1065,7 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
             };
 
             s.state_out_len = 3;
-            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+            let k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
 
             s.nblock_used += 1;
             if s.nblock_used == s.save_nblock + 1 {
@@ -1076,7 +1076,7 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
                 continue;
             };
 
-            k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
+            let k1 = BZ_GET_SMALL(s, s.nblock_used as u32);
 
             s.nblock_used += 1;
             s.state_out_len = k1 as i32 + 4;
@@ -1133,7 +1133,7 @@ pub extern "C" fn BZ2_bzDecompress(strm: *mut bz_stream) -> i32 {
             let corrupt = if s.smallDecompress > 0 {
                 unRLE_obuf_to_output_SMALL(s)
             } else {
-                unsafe { unRLE_obuf_to_output_FAST(s) }
+                unRLE_obuf_to_output_FAST(s)
             };
             if corrupt > 0 {
                 return BZ_DATA_ERROR;
