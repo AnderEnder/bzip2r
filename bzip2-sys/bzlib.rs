@@ -294,7 +294,6 @@ pub extern "C" fn copy_output_until_stop(s: &mut EState) -> u8 {
             *current = zbits[s.state_out_pos as usize] as i8;
             s.state_out_pos += 1;
             strm.avail_out -= 1;
-            // strm.next_out += 1;
 
             strm.total_out_lo32 += 1;
             if strm.total_out_lo32 == 0 {
@@ -653,6 +652,9 @@ pub extern "C" fn BZ2_bzDecompressInit(strm: *mut bz_stream, verbosity: i32, sma
 #[no_mangle]
 pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
     let strm = unsafe { s.strm.as_mut() }.unwrap();
+    let mut next_out_iter =
+        unsafe { from_raw_parts_mut(strm.next_out, strm.avail_out as usize) }.iter_mut();
+    let mut next_out = next_out_iter.next();
 
     if s.blockRandomised > 0 {
         loop {
@@ -664,11 +666,12 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
                 if s.state_out_len == 0 {
                     break;
                 }
-                unsafe { *strm.next_out = s.state_out_ch as i8 };
+                *next_out.unwrap() = s.state_out_ch as i8;
                 s.calculatedBlockCRC = bz_update_crc(s.calculatedBlockCRC, s.state_out_ch);
 
                 s.state_out_len -= 1;
-                unsafe { *strm.next_out += 1 };
+                next_out = next_out_iter.next();
+
                 strm.avail_out -= 1;
                 strm.total_out_lo32 += 1;
                 if strm.total_out_lo32 == 0 {
@@ -750,9 +753,7 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
         let mut c_tPos = s.tPos as u32;
 
         // let cs_next_out = unsafe { (strm.next_out as *mut i8).as_mut() }.unwrap();
-        let mut cs_next_out_iter =
-            unsafe { from_raw_parts_mut(strm.next_out, strm.avail_out as usize) }.iter_mut();
-        let mut cs_next_out = cs_next_out_iter.next();
+        // let mut cnext_out = next_out_iter.next();
         let mut cs_avail_out = strm.avail_out as u32;
         let ro_blockSize100k = s.blockSize100k as i32;
         // end restore
@@ -772,11 +773,11 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
                     if c_state_out_len == 1 {
                         break;
                     }
-                    *(cs_next_out.unwrap()) = c_state_out_ch as i8;
+                    *(next_out.unwrap()) = c_state_out_ch as i8;
                     c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
 
                     c_state_out_len -= 1;
-                    cs_next_out = cs_next_out_iter.next();
+                    next_out = next_out_iter.next();
                     cs_avail_out -= 1;
                 }
                 skip = false;
@@ -785,10 +786,10 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
                     c_state_out_len = 1;
                     break 'return_notr;
                 };
-                *(cs_next_out.unwrap()) = c_state_out_ch as i8;
+                *next_out.unwrap() = c_state_out_ch as i8;
                 c_calculatedBlockCRC = bz_update_crc(c_calculatedBlockCRC, c_state_out_ch);
 
-                cs_next_out = cs_next_out_iter.next();
+                next_out = next_out_iter.next();
                 cs_avail_out -= 1;
             }
             // Only caused by corrupt data stream?
@@ -894,8 +895,8 @@ pub extern "C" fn unRLE_obuf_to_output_FAST(s: &mut DState) -> u8 {
         s.k0 = c_k0;
         s.tt = c_tt;
         s.tPos = c_tPos;
-        if let Some(cs_next_out) = cs_next_out {
-            strm.next_out = cs_next_out;
+        if let Some(next_out) = next_out {
+            strm.next_out = next_out;
         } else {
             // memory leak?
             strm.next_out = std::ptr::null_mut();
@@ -921,6 +922,10 @@ fn BZ_GET_FAST_C(c_tt: &mut [u32], ro_blockSize100k: u32, c_tPos: &mut u32) -> O
 pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
     //    UChar k1;
     let strm = unsafe { s.strm.as_mut() }.unwrap();
+    let mut next_out_iter =
+        unsafe { from_raw_parts_mut(strm.next_out, strm.avail_out as usize) }.iter_mut();
+    let mut next_out = next_out_iter.next();
+
     // let mut k1 = 0;
     if s.blockRandomised > 0 {
         loop {
@@ -932,10 +937,12 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
                 if s.state_out_len == 0 {
                     break;
                 }
-                unsafe { *strm.next_out = s.state_out_ch as i8 };
+
+                *next_out.unwrap() = s.state_out_ch as i8;
                 s.calculatedBlockCRC = bz_update_crc(s.calculatedBlockCRC, s.state_out_ch);
                 s.state_out_len -= 1;
-                unsafe { *strm.next_out += 1 };
+                next_out = next_out_iter.next();
+
                 strm.avail_out -= 1;
                 strm.total_out_lo32 += 1;
                 if strm.total_out_lo32 == 0 {
@@ -1018,10 +1025,10 @@ pub extern "C" fn unRLE_obuf_to_output_SMALL(s: &mut DState) -> u8 {
                 if s.state_out_len == 0 {
                     break;
                 }
-                // *((UChar *)(s.strm.next_out)) = s.state_out_ch;
-                // BZ_UPDATE_CRC(s.calculatedBlockCRC, s.state_out_ch);
+                *next_out.unwrap() = s.state_out_ch as i8;
+                bz_update_crc(s.calculatedBlockCRC, s.state_out_ch);
                 s.state_out_len -= 1;
-                unsafe { *strm.next_out += 1 };
+                next_out = next_out_iter.next();
                 strm.avail_out -= 1;
                 strm.total_out_lo32 += 1;
                 if strm.total_out_lo32 == 0 {
